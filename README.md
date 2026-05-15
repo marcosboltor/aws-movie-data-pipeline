@@ -63,6 +63,8 @@ Cleaned and deduplicated datasets with corrected data types and relevance filter
 ### Gold Layer
 Optimized analytical tables using a rolling 30-day window for current trend analysis.
 
+## Architecture in AWS
+<img width="2964" height="1524" alt="WhatsApp Image 2026-05-14 at 5 56 53 p  m" src="https://github.com/user-attachments/assets/72bc2c96-cd94-400a-87fb-f413f3147c1b" />
 ---
 
 ## 5. Data Flow
