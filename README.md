@@ -14,7 +14,8 @@ A serverless data engineering pipeline built on AWS to analyze movie popularity.
 
 ## 🏗️ Architecture & Data Flow
 
-![Architecture Diagram](Link_to_your_architecture_diagram.png)
+![Architecture Diagram](<img width="2964" height="1524" alt="WhatsApp Image 2026-05-14 at 5 56 53 p  m" src="https://github.com/user-attachments/assets/72bc2c96-cd94-400a-87fb-f413f3147c1b" />
+)
 *(Note: Replace the link above with the URL of your architecture image)*
 
 [cite_start]The pipeline runs on a lightweight, event-driven architecture designed for cost-efficiency without relying on always-on clusters[cite: 11, 74]. [cite_start]The flow is fully automated up to the Gold layer: EventBridge initiates the ingestion, S3 triggers the Silver processing, and Silver invokes Gold upon successful completion[cite: 12].
