@@ -23,9 +23,7 @@ The solution leverages a **Medallion Architecture** (Bronze, Silver, Gold) to en
 The system is designed to answer critical business questions such as:
 
 - **Genre Performance:** Which movie categories are dominating the recent market?
-
 - **Recommendations:** Which titles have the best balance between popularity and audience/critic consensus?
-
 - **Overexposure Detection:** Identify highly popular movies with poor ratings to avoid oversaturating the catalog with low-quality content.
 
 ---
@@ -33,9 +31,11 @@ The system is designed to answer critical business questions such as:
 ## 3. Technology Stack
 
 ### Programming Languages
+
 - **Python** (AWS Lambda Functions)
 
 ### AWS Infrastructure & Services
+
 - **Amazon S3:** Data Lake storage for Bronze, Silver, and Gold layers.
 - **AWS Lambda:** Serverless ingestion and transformation orchestration.
 - **Amazon EventBridge:** Cron-based scheduling (Mondays and Fridays at 8:00 AM).
@@ -44,6 +44,7 @@ The system is designed to answer critical business questions such as:
 - **AWS Secrets Manager:** Secure storage for TMDb API credentials.
 
 ### Additional Technologies
+
 - **Apache Parquet:** Optimized columnar storage format for the Silver layer.
 - **SQL (Trino/Presto Dialect):** Complex transformations and genre `UNNEST` operations.
 - **NDJSON:** Raw ingestion file format.
@@ -55,15 +56,19 @@ The system is designed to answer critical business questions such as:
 The pipeline is fully **event-driven**, minimizing idle infrastructure time and optimizing operational costs.
 
 ### Bronze Layer
+
 Raw NDJSON data captured directly from the TMDb API.
 
 ### Silver Layer
+
 Cleaned and deduplicated datasets with corrected data types and relevance filtering (`vote_count >= 100`).
 
 ### Gold Layer
+
 Optimized analytical tables using a rolling 30-day window for current trend analysis.
 
 ## Architecture in AWS
+
 <img width="2964" height="1524" alt="WhatsApp Image 2026-05-14 at 5 56 53 p  m" src="https://github.com/user-attachments/assets/72bc2c96-cd94-400a-87fb-f413f3147c1b" />
 ---
 
@@ -71,19 +76,14 @@ Optimized analytical tables using a rolling 30-day window for current trend anal
 
 1. **Ingestion**
    Amazon EventBridge Scheduler triggers the `tmdb_to_bronze` Lambda function.
-
 2. **Bronze Storage**
    Raw data is fetched from the TMDb API and stored in Amazon S3 as NDJSON files.
-
 3. **Event Notification**
    An S3 Event Notification automatically invokes the `bronze_to_silver` Lambda.
-
 4. **Silver Processing**
    Data is cleaned, normalized, filtered, and stored in Parquet format.
-
 5. **Gold Processing**
    The Silver Lambda invokes the `silver_to_gold` Lambda function.
-
 6. **Analytics Generation**
    Amazon Athena generates business-ready analytical tables using CTAS queries.
 
@@ -93,12 +93,12 @@ Optimized analytical tables using a rolling 30-day window for current trend anal
 
 The Gold layer transforms raw datasets into actionable insights for the streaming business.
 
-| Table | Business Purpose |
-|---|---|
-| `gold_genre_performance` | Identifies the most attractive genres for catalog expansion |
-| `gold_movie_ranking` | Prioritizes movies with strong popularity and ratings |
-| `gold_overexposed_movies` | Detects highly promoted but poorly rated content |
-| `gold_genre_trends` | Identifies recent genre trends for acquisition strategies |
+| Table                       | Business Purpose                                            |
+| --------------------------- | ----------------------------------------------------------- |
+| `gold_genre_performance`  | Identifies the most attractive genres for catalog expansion |
+| `gold_movie_ranking`      | Prioritizes movies with strong popularity and ratings       |
+| `gold_overexposed_movies` | Detects highly promoted but poorly rated content            |
+| `gold_genre_trends`       | Identifies recent genre trends for acquisition strategies   |
 
 ---
 
@@ -117,25 +117,21 @@ Although the project is functional and cost-efficient for medium-scale workloads
 
 - **Infrastructure as Code (IaC):**
   Migrate infrastructure provisioning to Terraform or AWS CloudFormation for repeatable deployments.
-
 - **Data Quality Validation:**
   Integrate AWS Glue Data Quality or libraries such as Great Expectations within the Silver layer.
-
 - **Data Visualization:**
   Connect Gold layer tables to dashboards using Amazon QuickSight or Power BI.
-
 - **Monitoring & Alerts:**
   Configure Amazon CloudWatch Alarms and SNS notifications for Lambda failures.
-
 - **CI/CD Pipeline:**
   Implement GitHub Actions workflows for automated Lambda deployment and validation.
 
 ---
 
-## 9. Repository Structure
+## 9. Code Structure
 
 ```bash
-.
+src
 ├── lambda/
 │   ├── tmdb_to_bronze/
 │   ├── bronze_to_silver/
@@ -145,3 +141,4 @@ Although the project is functional and cost-efficient for medium-scale workloads
 ├── architecture/
 ├── docs/
 └── README.md
+```
