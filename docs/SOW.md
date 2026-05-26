@@ -1,211 +1,206 @@
 # Statement of Work (SOW)  
-# Proyecto AWS/TMDb Data Lake
+# Streaming Platform - Catalog Analytics with TMDb and AWS
 
-**Proyecto:** Implementación de Data Lake para analítica de películas usando TMDb y AWS  
-**Cliente académico:** Proyecto final de materia AWS/TMDb  
-**Fecha:** Mayo 2026  
-**Equipo:** Equipo de desarrollo del proyecto
-
----
-
-## 1. Resumen del proyecto
-
-El proyecto consiste en diseñar e implementar una arquitectura de datos en AWS para recolectar, almacenar, transformar y analizar información de películas obtenida desde la API de TMDb.
-
-La solución utiliza una arquitectura Medallion con capas Bronze, Silver y Gold sobre Amazon S3. Los datos son consultados mediante Amazon Athena, catalogados con AWS Glue Data Catalog y visualizados desde Power BI mediante conexión ODBC hacia Athena.
-
-El objetivo principal es demostrar un flujo de datos funcional, automatizado y defendible, utilizando servicios administrados de AWS y buenas prácticas básicas de seguridad, organización y documentación.
+**Client:** Streaming Platform  
+**Project:** AWS Data Lake for data-driven audiovisual catalog management  
+**Date:** May 2026  
+**Team:**  
+Galindo Reyes Daniel Adrian  
+Lemus González Javier Issac  
+Roberto Aburto López  
+Flores Chávez Marcos Gabriel  
+Bolaños Guerrero Julian
 
 ---
 
-## 2. Objetivos
+## 1. Project Summary
 
-### 2.1 Objetivo general
+This project consists of designing and implementing a data analytics solution for a streaming platform that needs to make more informed decisions regarding its movie catalog.
 
-Implementar un Data Lake en AWS para analizar información de películas populares de TMDb, permitiendo consultas analíticas y visualización de indicadores relevantes para toma de decisiones.
+The company needs to evaluate the recent market behavior of popular movies in order to identify which genres and titles should be acquired, prioritized, recommended, promoted, or handled with caution. For this purpose, the solution uses external data from TMDb, including popularity, average rating, vote volume, genres, release date, and original language.
 
-### 2.2 Objetivos específicos
-
-- Extraer datos desde TMDb API mediante AWS Lambda.
-- Almacenar datos crudos en Amazon S3.
-- Organizar la información en capas Bronze, Silver y Gold.
-- Transformar los datos a formatos analíticos, preferentemente Parquet.
-- Registrar metadatos mediante AWS Glue Crawler y Glue Data Catalog.
-- Consultar datos mediante Amazon Athena.
-- Generar datasets Gold para análisis de negocio.
-- Conectar Athena con Power BI para visualización.
-- Documentar arquitectura, funcionamiento técnico, alcance y operación del sistema.
+The implemented solution uses an AWS data pipeline based on a Bronze, Silver, and Gold architecture. The Gold layer generates business-oriented analytical tables, and Power BI presents the results through an executive dashboard connected to Athena via ODBC.
 
 ---
 
-## 3. Alcance del trabajo
+## 2. General Objective
 
-El alcance del proyecto incluye las siguientes actividades.
-
-### 3.1 Ingesta de datos
-
-- Configuración de una función AWS Lambda para consumir TMDb API.
-- Uso de Secrets Manager para centralizar parámetros sensibles o configurables.
-- Descarga de información de películas populares.
-- Almacenamiento de los datos extraídos en S3, dentro de la capa Bronze.
-
-### 3.2 Almacenamiento y organización
-
-- Creación o uso de un bucket S3 para el Data Lake.
-- Separación de datos por capas:
-  - `1bronce/`
-  - `2silver/`
-  - `3gold/`
-- Organización de archivos por fechas o particiones cuando aplique.
-
-### 3.3 Transformación de datos
-
-- Limpieza de registros.
-- Selección de campos relevantes.
-- Conversión de tipos de datos.
-- Eliminación o control de duplicados.
-- Escritura de datos transformados en Silver.
-- Construcción de datasets analíticos en Gold.
-
-### 3.4 Catálogo y consulta
-
-- Ejecución de AWS Glue Crawler para descubrir esquemas.
-- Registro de tablas en Glue Data Catalog.
-- Consulta de tablas mediante Amazon Athena.
-- Creación de consultas SQL para análisis de métricas de películas.
-
-### 3.5 Automatización
-
-- Programación de ejecuciones mediante Amazon EventBridge.
-- Configuración de Lambda como proceso de ingesta programado.
-- Control de frecuencia de ejecución para evitar costos innecesarios.
-
-### 3.6 Visualización
-
-- Conexión de Power BI con Athena mediante ODBC genérico.
-- Validación de consulta desde Power BI.
-- Preparación de visualizaciones o métricas a partir de los datos Gold.
-
-### 3.7 Documentación
-
-- Documentación funcional.
-- Documentación técnica.
-- Documentación de arquitectura.
-- RFP.
-- SOW.
-- Instructivo de replicación.
-- Evidencias y capturas de implementación.
+Implement a data architecture on AWS that enables a streaming platform to analyze recent information about popular movies and support decisions related to content acquisition, recommendation, and promotion.
 
 ---
 
-## 4. Fuera de alcance
+## 3. Specific Objectives
 
-Quedan fuera del alcance, salvo que el equipo los haya implementado explícitamente:
-
-- Implementación productiva multiambiente.
-- Despliegue completo mediante CI/CD.
-- Monitoreo avanzado con alarmas productivas.
-- Gobierno de datos empresarial con Lake Formation.
-- Control avanzado de calidad de datos con frameworks especializados.
-- Entrenamiento de modelos de Machine Learning.
-- Alta disponibilidad empresarial.
-- Procesamiento de grandes volúmenes con EMR o Spark distribuido, salvo que se documente como posible mejora.
+- Ingest popular movie data from the TMDb API.
+- Store raw snapshots in Amazon S3 within the Bronze layer.
+- Transform the data into a clean, filtered, typed Silver layer in Parquet format.
+- Generate Gold analytical tables focused on catalog-related business questions.
+- Automate the ingestion and transformation flow using EventBridge, S3 Event Notification, and AWS Lambda.
+- Query the analytical tables using Amazon Athena.
+- Visualize results in Power BI Desktop connected to Athena through ODBC.
+- Maintain a serverless, cost-efficient design suitable for the project’s data volume.
 
 ---
 
-## 5. Entregables
+## 4. Scope of Work
 
-| Entregable | Descripción |
+The scope includes the following activities.
+
+### 4.1 Data Ingestion
+
+- Configuration of a Lambda function named `tmdb_to_bronze`.
+- Querying the TMDb `/movie/popular` endpoint.
+- Extracting pages 1 to 5 per execution, equivalent to approximately 100 movies per run.
+- Adding metadata such as `source_page`, `ingestion_timestamp`, and `ingestion_date`.
+- Storing raw data in S3 Bronze in NDJSON format.
+
+### 4.2 Bronze Layer
+
+- Preservation of raw data obtained from TMDb.
+- File organization under the following path:
+
+```text
+1bronce/tmdb/popular/
+```
+
+- Use of Bronze as a traceability and reprocessing source.
+
+### 4.3 Silver Layer
+
+- Automatic activation through S3 Event Notification when new files arrive in Bronze.
+- Execution of the `bronce_tmdb_to_silver` Lambda function.
+- Data cleaning and normalization.
+- Genre mapping.
+- Date conversion.
+- Filtering movies with `vote_count >= 100`.
+- Removal of duplicates within the batch.
+- Writing clean data in Parquet format under:
+
+```text
+2silver/movies/
+```
+
+### 4.4 Gold Layer
+
+- Automatic invocation of the `silver_tmdb_to_gold` Lambda function once Silver finishes successfully.
+- Cleaning of Gold folders before recreating tables.
+- Creation of analytical tables using Athena CTAS.
+- Use of a 30-day rolling window.
+- Selection of the most recent record per movie using `ingestion_timestamp`.
+- Splitting genres with `UNNEST(split(...))` when a movie belongs to multiple genres.
+
+The Gold tables considered are:
+
+```text
+gold_performance_genero
+gold_ranking_peliculas
+gold_peliculas_sobreexpuestas
+gold_tendencia_generos
+```
+
+### 4.5 Query and Visualization
+
+- Use of Athena as the SQL engine over S3.
+- Use of Glue Data Catalog to register metadata.
+- Connection of Power BI Desktop to Athena through generic ODBC using the Amazon Athena driver.
+- Development of an executive dashboard to visualize catalog indicators.
+
+---
+
+## 5. Out of Scope
+
+The following elements are not part of the production scope of this solution:
+
+- Use of Glue Jobs, EMR, Redshift, RDS, or QuickSight as main components.
+- Implementation of a user-level personalized recommendation system.
+- Training of machine learning models.
+- Advanced data governance with Lake Formation.
+- Multi-environment production deployment.
+- Enterprise high availability.
+- Full infrastructure automation through CI/CD, except for a base template or documentation.
+
+These exclusions were defined because the data volume is low and the business case can be efficiently solved with serverless and on-demand services.
+
+---
+
+## 6. Deliverables
+
+| Deliverable | Description |
 |---|---|
-| Repositorio GitHub | Estructura completa del proyecto con código, documentación y evidencias. |
-| Código Lambda | Código de ingesta desde TMDb API hacia S3. |
-| Scripts de transformación | Código o consultas utilizadas para generar Silver y Gold. |
-| Scripts SQL Athena | Consultas para validación y análisis. |
-| Documentación funcional | Descripción del sistema desde perspectiva de negocio y usuario. |
-| Documentación técnica | Descripción de componentes, configuración y operación. |
-| Documentación de arquitectura | Explicación del diseño, flujo de datos y servicios AWS. |
-| RFP | Documento de solicitud de propuesta adaptado al proyecto. |
-| SOW | Alcance formal de trabajo del proyecto. |
-| Diagramas | Diagrama de arquitectura y diagrama de flujo o secuencia. |
-| Evidencias | Capturas de S3, Lambda, Glue, Athena, EventBridge y Power BI cuando existan. |
-| Presentación ejecutiva | Presentación final del proyecto. |
-| Pruebas | Pruebas unitarias, integración o configuración si fueron realizadas. |
+| GitHub Repository | Organized project with documentation, code, diagrams, evidence, and tests. |
+| Lambda Code | Lambda functions for Bronze ingestion, Silver transformation, and Gold generation. |
+| Athena SQL Scripts | CTAS queries and validation queries over Gold tables. |
+| Functional Documentation | Explanation of the system from the business perspective of a streaming platform. |
+| Technical Documentation | Details of services, paths, Lambda functions, tables, permissions, execution, and monitoring. |
+| Architecture Documentation | Description of the end-to-end flow, Medallion architecture, and visualization layer. |
+| RFP | Request for Proposal focused on the need for catalog analytics. |
+| SOW | Formal scope of the work performed. |
+| Diagrams | Architecture diagram and pipeline flow diagram. |
+| Evidence | AWS and Power BI screenshots proving the implementation. |
+| Executive Presentation | Presentation explaining business value, architecture, and results. |
+| Tests | Unit, integration, or configuration tests, if performed. |
 
 ---
 
-## 6. Cronograma estimado
+## 7. Estimated Timeline
 
-| Fase | Actividades |
+| Phase | Activities |
 |---|---|
-| Fase 1 | Diseño de arquitectura y definición de capas del Data Lake. |
-| Fase 2 | Configuración de S3, Secrets Manager y Lambda. |
-| Fase 3 | Ingesta de datos desde TMDb API hacia Bronze. |
-| Fase 4 | Transformación de datos hacia Silver y Gold. |
-| Fase 5 | Configuración de Glue Crawler, Glue Data Catalog y Athena. |
-| Fase 6 | Conexión con Power BI y validación de consultas. |
-| Fase 7 | Documentación, diagramas, evidencias y presentación final. |
+| Phase 1 | Definition of the business case and catalog analytics questions. |
+| Phase 2 | Design of the Bronze, Silver, and Gold architecture on AWS. |
+| Phase 3 | Implementation of TMDb ingestion into S3 Bronze. |
+| Phase 4 | Development of the Silver transformation with cleaning, filtering, and Parquet output. |
+| Phase 5 | Generation of Gold tables with Athena CTAS. |
+| Phase 6 | Automation with EventBridge, S3 Event Notification, and Lambda-to-Lambda invocation. |
+| Phase 7 | Connection between Power BI and Athena and construction of the executive dashboard. |
+| Phase 8 | Documentation, evidence, tests, and repository preparation. |
 
 ---
 
-## 7. Criterios de aceptación
+## 8. Acceptance Criteria
 
-El proyecto se considerará aceptado si cumple con los siguientes criterios:
+The project will be considered accepted if it meets the following criteria:
 
-- La función Lambda obtiene datos desde TMDb API.
-- Los datos crudos se almacenan correctamente en S3 Bronze.
-- Existe una capa Silver con datos limpios y estructurados.
-- Existe una capa Gold con datos aptos para análisis.
-- Glue Crawler reconoce los archivos y crea o actualiza tablas en el catálogo.
-- Athena permite consultar los datos correctamente.
-- Power BI puede conectarse a Athena y visualizar resultados.
-- La ejecución periódica mediante EventBridge está documentada o implementada.
-- El repositorio contiene código, documentación, diagramas y evidencias.
-- No se exponen credenciales ni secretos en el código fuente.
-
----
-
-## 8. Supuestos
-
-- La API de TMDb está disponible durante las ejecuciones.
-- La API Key se encuentra configurada fuera del código fuente.
-- El volumen de datos consultado se mantiene dentro de límites razonables para un proyecto académico.
-- La estructura de respuesta de TMDb se conserva sin cambios mayores.
-- Los servicios AWS utilizados permanecen disponibles.
-- El equipo cuenta con permisos suficientes en AWS para ejecutar Lambda, S3, Glue, Athena, EventBridge y Secrets Manager.
+- The `tmdb_to_bronze` Lambda function correctly queries TMDb and stores data in Bronze.
+- Ingestion runs on a schedule through EventBridge.
+- The arrival of data in Bronze automatically triggers the Silver process.
+- Silver generates clean Parquet files in `2silver/movies/`.
+- Silver filters records with `vote_count >= 100` and preserves fields relevant for analysis.
+- Gold is generated automatically after Silver finishes.
+- Gold tables are created through Athena CTAS.
+- Gold tables answer business questions about genre performance, movie rankings, overexposed movies, and trends.
+- Athena can query the project tables.
+- Power BI Desktop can consume Gold tables from Athena through ODBC.
+- The repository does not expose API keys, secrets, or credentials.
+- The documentation makes it possible to understand, review, and replicate the general system flow.
 
 ---
 
-## 9. Riesgos
+## 9. Assumptions
 
-| Riesgo | Mitigación |
+- The TMDb API is available during executions.
+- The TMDb API Key is securely managed in AWS Secrets Manager.
+- The data volume remains within a range compatible with Lambda, S3, and Athena.
+- The streaming platform uses this data as market analysis support, not as the only source of decision-making.
+- Power BI Desktop supports manual dashboard refresh.
+- For production refresh, the dashboard could be published to Power BI Service and updated through Power BI Gateway.
+
+---
+
+## 10. Risks and Mitigations
+
+| Risk | Mitigation |
 |---|---|
-| Exposición accidental de la API Key | Usar Secrets Manager y excluir secretos del repositorio. |
-| Costos inesperados en AWS | Limitar frecuencia de ejecución y evitar procesamiento innecesario. |
-| Cambios en la API de TMDb | Documentar dependencias y validar respuestas antes de transformar. |
-| Errores de esquema en Athena | Reejecutar Glue Crawler y validar tipos de datos. |
-| Duplicidad de datos | Usar timestamps, particiones y lógica de selección de registros recientes. |
-| Problemas de conexión con Power BI | Documentar el uso de ODBC genérico y validar DSN. |
+| API Key exposure | Use Secrets Manager and exclude secrets from the repository. |
+| Low-representativeness data | Filter movies with `vote_count >= 100`. |
+| Duplicates from multiple ingestions | Select the most recent record per movie in Gold. |
+| Unnecessary costs | Schedule ingestion only on Mondays and Fridays and use on-demand services. |
+| Changes in TMDb structure | Validate the schema in Silver and update transformations when necessary. |
+| Errors recreating Gold tables | Clean S3 Gold folders before executing CTAS. |
+| Power BI-Athena connection failures | Document ODBC configuration, DSN, and Athena result location. |
 
 ---
 
-## 10. Responsabilidades
+## 11. Conclusion
 
-### Equipo del proyecto
-
-- Implementar la solución.
-- Documentar arquitectura y operación.
-- Preparar evidencias.
-- Mantener el repositorio ordenado.
-- Evitar exposición de credenciales.
-
-### Profesor o evaluador
-
-- Revisar documentación, evidencias y funcionamiento.
-- Validar que el proyecto cumpla con los criterios establecidos.
-- Evaluar presentación ejecutiva y defensa técnica.
-
----
-
-## 11. Conclusión
-
-Este SOW define el alcance y entregables del proyecto AWS/TMDb. La solución busca demostrar una arquitectura de datos funcional sobre AWS, integrando ingesta, almacenamiento, transformación, consulta y visualización de información de películas mediante servicios administrados.
+This SOW defines the scope of an analytics solution for a streaming platform that needs to manage its catalog using external market data. The architecture automates ingestion, cleaning, refinement, querying, and visualization of popular movie data using AWS and Power BI.
