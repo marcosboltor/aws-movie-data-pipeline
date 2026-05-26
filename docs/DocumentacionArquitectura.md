@@ -1,292 +1,262 @@
 # Documentación de Arquitectura  
-# Implementación de Data Lake AWS/TMDb
+# Data Lake AWS/TMDb para Gestión de Catálogo de Streaming
 
-**Proyecto:** AWS/TMDb Data Lake  
+**Cliente:** Plataforma de Streaming  
+**Proyecto:** Analítica de catálogo audiovisual con TMDb y AWS  
 **Fecha:** Mayo 2026  
-**Versión:** 1.0
+**Versión:** 2.0
 
 ---
 
 ## 1. Resumen ejecutivo
 
-Este documento describe la arquitectura del sistema de datos implementado para analizar información de películas obtenida desde TMDb API.
+Este documento describe la arquitectura de datos implementada para una plataforma de streaming que necesita analizar información reciente de películas populares y usarla como apoyo para decisiones de catálogo.
 
-La solución sigue una arquitectura Medallion con tres capas principales: Bronze, Silver y Gold. Amazon S3 funciona como almacenamiento central del Data Lake. AWS Lambda realiza la ingesta desde TMDb API. AWS Glue Crawler y Glue Data Catalog permiten registrar los metadatos. Amazon Athena permite ejecutar consultas SQL sobre los datos almacenados en S3. Finalmente, Power BI se conecta a Athena mediante ODBC para la visualización de información.
-
-La arquitectura fue diseñada para ser simple, reproducible, de bajo costo y adecuada para un proyecto académico de analítica en AWS.
+La solución utiliza una arquitectura Medallion con capas Bronze, Silver y Gold sobre Amazon S3. El flujo está automatizado de punta a punta mediante EventBridge, S3 Event Notification y AWS Lambda. Amazon Athena crea y consulta tablas analíticas Gold, y Power BI consume estos resultados para presentar un dashboard ejecutivo.
 
 ---
 
 ## 2. Objetivo de la arquitectura
 
-Diseñar un flujo de datos que permita:
+La arquitectura tiene como objetivo convertir datos externos de TMDb en información accionable para decisiones de catálogo, incluyendo:
 
-- Ingerir datos desde TMDb API.
-- Almacenar datos crudos y transformados en Amazon S3.
-- Separar la información por capas de procesamiento.
-- Consultar los datos con SQL mediante Athena.
-- Generar una capa Gold para análisis.
-- Conectar la información con Power BI.
-- Automatizar la ingesta mediante EventBridge.
-- Mantener credenciales fuera del código fuente.
+- Identificación de géneros con mejor desempeño reciente.
+- Priorización de películas recomendables o promocionables.
+- Detección de películas populares con baja calificación.
+- Identificación de géneros con crecimiento reciente.
+- Visualización ejecutiva de indicadores en Power BI.
 
 ---
 
-## 3. Stack tecnológico
-
-| Componente | Servicio / herramienta | Uso dentro del proyecto |
-|---|---|---|
-| Fuente de datos | TMDb API | Origen de datos de películas populares. |
-| Ingesta | AWS Lambda | Extracción de datos desde la API. |
-| Configuración segura | AWS Secrets Manager | Almacenamiento de API Key y parámetros configurables. |
-| Almacenamiento | Amazon S3 | Data Lake con capas Bronze, Silver y Gold. |
-| Catálogo | AWS Glue Data Catalog | Registro de tablas y metadatos. |
-| Descubrimiento de esquema | AWS Glue Crawler | Detección de archivos, esquemas y particiones. |
-| Consulta | Amazon Athena | Motor SQL sobre S3. |
-| Automatización | Amazon EventBridge | Programación de ejecuciones de ingesta. |
-| Visualización | Power BI | Tableros y análisis conectados a Athena. |
-| Conectividad BI | ODBC genérico / Athena ODBC | Conexión entre Power BI y Athena. |
-
----
-
-## 4. Vista conceptual de la arquitectura
+## 3. Diagrama conceptual
 
 ```text
 TMDb API
-   |
-   v
-AWS Lambda
-   |
-   | obtiene configuración desde
-   v
-AWS Secrets Manager
-   |
-   v
-Amazon S3 - Bronze
-   |
-   v
-Transformación / limpieza
-   |
-   v
-Amazon S3 - Silver
-   |
-   v
-Agregación / refinamiento
-   |
-   v
-Amazon S3 - Gold
-   |
-   v
-AWS Glue Crawler + Glue Data Catalog
-   |
-   v
-Amazon Athena
-   |
-   v
-Power BI
+↓
+Amazon EventBridge Scheduler
+↓
+Lambda tmdb_to_bronze
+↓
+Amazon S3 - 1bronce/tmdb/popular/
+↓ S3 Event Notification
+Lambda bronce_tmdb_to_silver
+↓
+Amazon S3 - 2silver/movies/
+↓ invocación automática
+Lambda silver_tmdb_to_gold
+↓
+Amazon Athena CTAS
+↓
+Amazon S3 - 3gold/
+↓
+Athena Query Editor / ODBC
+↓
+Power BI Desktop - Dashboard ejecutivo
 ```
 
 ---
 
-## 5. Descripción de capas Medallion
+## 4. Stack tecnológico
 
-### 5.1 Capa Bronze
+| Componente | Servicio / herramienta | Función |
+|---|---|---|
+| Fuente externa | TMDb API | Provee datos de películas populares. |
+| Orquestación inicial | EventBridge Scheduler | Programa la ingesta lunes y viernes a las 8:00 a.m. |
+| Ingesta | AWS Lambda | Consulta TMDb y guarda datos en Bronze. |
+| Almacenamiento | Amazon S3 | Guarda las capas Bronze, Silver y Gold. |
+| Automatización intermedia | S3 Event Notification | Dispara Silver al detectar nuevos archivos en Bronze. |
+| Transformación | AWS Lambda | Limpia datos y genera Silver. |
+| Generación analítica | AWS Lambda + Athena CTAS | Recrea tablas Gold orientadas a negocio. |
+| Catálogo | AWS Glue Data Catalog | Registra metadatos consultables por Athena. |
+| Descubrimiento de esquema | AWS Glue Crawler | Detecta esquema y particiones de Silver. |
+| Consulta | Amazon Athena | Consulta Silver/Gold y genera tablas CTAS. |
+| Visualización | Power BI Desktop | Dashboard ejecutivo conectado a Athena por ODBC. |
+| Seguridad | IAM + Secrets Manager | Manejo de permisos y secretos. |
+| Desarrollo | Amazon EC2 | Ambiente de pruebas; no forma parte del pipeline productivo. |
 
-La capa Bronze almacena los datos crudos obtenidos desde TMDb API. Su objetivo es conservar la información de origen con el menor procesamiento posible.
+---
+
+## 5. Arquitectura Medallion
+
+### 5.1 Bronze
+
+La capa Bronze conserva los datos crudos obtenidos desde TMDb. Su valor principal es la trazabilidad: permite mantener snapshots de cada ingesta y reprocesar datos si es necesario.
+
+Ruta:
+
+```text
+1bronce/tmdb/popular/
+```
 
 Características:
 
-- Contiene respuestas originales o semiestructuradas de TMDb.
-- Permite reprocesamiento en caso de errores.
-- Conserva evidencia histórica de ingestas.
-- Puede organizarse por fecha de ingesta, página o timestamp.
+- Formato NDJSON.
+- Datos por fecha de ingesta.
+- Aproximadamente 100 películas por ejecución.
+- Incluye `source_page`, `ingestion_timestamp` e `ingestion_date`.
 
-Ejemplo de ruta:
+---
 
-```text
-s3://<bucket>/1bronce/tmdb/popular/
-```
+### 5.2 Silver
 
-### 5.2 Capa Silver
+La capa Silver contiene datos limpios, filtrados y listos para consulta estructurada.
 
-La capa Silver contiene datos limpios y estructurados. En esta capa se aplican transformaciones básicas para que la información pueda consultarse de forma confiable.
-
-Transformaciones esperadas:
-
-- Selección de campos relevantes.
-- Conversión de tipos de datos.
-- Normalización de fechas.
-- Control de duplicados.
-- Inclusión de campos de trazabilidad como fecha o timestamp de ingesta.
-- Escritura en formato Parquet cuando aplique.
-
-Campos trabajados en el proyecto incluyen, entre otros:
-
-- `release_date`
-- `popularity`
-- `vote_average`
-- `vote_count`
-- `genres`
-- `audience_score`
-- `original_title`
-- `original_language`
-- `adult`
-- `overview`
-- `source_page`
-- `ingestion_timestamp`
-- `ingestion_date`
-
-Ejemplo de ruta:
+Ruta:
 
 ```text
-s3://<bucket>/2silver/
+2silver/movies/
 ```
 
-### 5.3 Capa Gold
+Características:
 
-La capa Gold contiene datos refinados para análisis y visualización. En esta capa se preparan consultas, agregaciones o tablas finales que responden preguntas de negocio.
+- Formato Parquet.
+- Histórico limpio.
+- Filtro `vote_count >= 100`.
+- Mapeo de géneros.
+- Conversión de fechas y tipos numéricos.
+- Eliminación de duplicados del lote.
+- Reconocimiento mediante Glue Crawler y Glue Data Catalog.
 
-Ejemplos de análisis:
+---
 
-- Popularidad promedio por género.
-- Promedio de votos por género.
-- Películas con mayor puntuación.
-- Comparación por idioma original.
-- Evolución por fecha de estreno.
-- Detección de películas populares con alto o bajo volumen de votos.
+### 5.3 Gold
 
-Ejemplo de ruta:
+La capa Gold contiene tablas analíticas orientadas al negocio de streaming.
+
+Ruta:
 
 ```text
-s3://<bucket>/3gold/
+3gold/
 ```
+
+Tablas:
+
+| Tabla | Uso |
+|---|---|
+| `gold_performance_genero` | Identificar géneros con mejor desempeño reciente. |
+| `gold_ranking_peliculas` | Priorizar películas para recomendación o promoción. |
+| `gold_peliculas_sobreexpuestas` | Detectar películas populares con baja calificación. |
+| `gold_tendencia_generos` | Identificar géneros con crecimiento reciente. |
+
+Características:
+
+- Creada mediante Athena CTAS.
+- Ventana móvil de 30 días.
+- Registro más reciente por película.
+- Limpieza automática de carpetas S3 Gold antes de recrear tablas.
+- Separación de géneros múltiples con `UNNEST(split(...))`.
 
 ---
 
 ## 6. Flujo de datos
 
-1. EventBridge activa la función Lambda de acuerdo con la programación definida.
-2. Lambda consulta TMDb API usando parámetros almacenados en Secrets Manager.
-3. Lambda guarda los datos obtenidos en Amazon S3 dentro de la capa Bronze.
-4. Los datos se transforman para generar una capa Silver limpia y estructurada.
-5. A partir de Silver se generan datasets o tablas Gold para consumo analítico.
-6. Glue Crawler detecta esquemas, archivos y particiones.
-7. Glue Data Catalog registra las tablas disponibles.
-8. Athena consulta los datos usando SQL.
-9. Power BI se conecta a Athena mediante ODBC para crear reportes.
+1. EventBridge ejecuta `tmdb_to_bronze` lunes y viernes a las 8:00 a.m.
+2. La Lambda consulta `/movie/popular` de TMDb, páginas 1 a 5.
+3. Los datos se guardan en Bronze en formato NDJSON.
+4. S3 Event Notification detecta el nuevo archivo y activa `bronce_tmdb_to_silver`.
+5. Silver limpia, filtra, mapea géneros y escribe Parquet en `2silver/movies/`.
+6. Al terminar correctamente, Silver invoca `silver_tmdb_to_gold`.
+7. Gold elimina tablas anteriores y limpia rutas S3 Gold.
+8. Athena CTAS recrea las cuatro tablas analíticas.
+9. Athena expone las tablas Gold para consulta.
+10. Power BI Desktop consume las tablas mediante ODBC.
+11. El dashboard presenta resultados ejecutivos de catálogo.
 
 ---
 
-## 7. Componentes principales
+## 7. Capa de visualización
 
-### 7.1 TMDb API
+La capa de visualización se implementa con Power BI Desktop conectado a Athena mediante ODBC.
 
-Es la fuente externa de datos. Se utilizó para obtener información de películas populares. La API requiere una llave de acceso que no debe almacenarse directamente en el repositorio.
+Fuente de datos:
 
-### 7.2 AWS Lambda
+```text
+db_movies_tmdb.gold_performance_genero
+db_movies_tmdb.gold_ranking_peliculas
+db_movies_tmdb.gold_peliculas_sobreexpuestas
+db_movies_tmdb.gold_tendencia_generos
+```
 
-Ejecuta el proceso de ingesta. Su función principal es conectarse a TMDb API, recuperar datos y almacenarlos en S3.
+El dashboard permite analizar:
 
-### 7.3 AWS Secrets Manager
+- KPIs generales.
+- Desempeño por género.
+- Tendencia de géneros.
+- Ranking de películas recomendables.
+- Películas sobreexpuestas.
 
-Se usa para almacenar parámetros sensibles o configurables, como:
-
-- API Key.
-- URL base.
-- Endpoint.
-- Bucket de destino.
-- Prefijos de almacenamiento.
-
-### 7.4 Amazon S3
-
-Es el repositorio central del Data Lake. Separa los datos en capas Bronze, Silver y Gold.
-
-### 7.5 AWS Glue Crawler
-
-Identifica estructura, columnas y particiones de los datos almacenados en S3. Permite que Athena consulte los datos mediante tablas del catálogo.
-
-### 7.6 AWS Glue Data Catalog
-
-Funciona como catálogo de metadatos. En el proyecto se trabajó con una base de datos asociada a películas TMDb, por ejemplo `db_movies_tmdb`.
-
-### 7.7 Amazon Athena
-
-Permite ejecutar SQL sobre archivos almacenados en S3. Se utiliza para validar datos, consultar Silver y generar o consultar resultados Gold.
-
-### 7.8 Amazon EventBridge
-
-Automatiza la ejecución periódica de la ingesta. La frecuencia debe definirse considerando costos, límites de API y necesidades de actualización.
-
-### 7.9 Power BI
-
-Herramienta de visualización conectada a Athena mediante ODBC. Permite construir reportes y tableros a partir de los datos procesados.
+En un escenario productivo, el reporte puede publicarse en Power BI Service y actualizarse mediante Power BI Gateway después de cada ejecución del pipeline.
 
 ---
 
 ## 8. Seguridad
 
-La arquitectura considera los siguientes controles:
+La arquitectura considera:
 
-- Uso de Secrets Manager para no exponer la API Key.
-- Políticas IAM con permisos mínimos necesarios.
-- Separación de responsabilidades por servicio.
-- Evitar subir archivos `.env`, credenciales o claves al repositorio.
-- Controlar permisos sobre S3, Lambda, Glue y Athena.
-- Definir una ubicación específica para resultados de consultas Athena.
-
----
-
-## 9. Consideraciones de costo
-
-Para reducir costos:
-
-- Se usa una arquitectura serverless cuando es posible.
-- Lambda se ejecuta bajo demanda o por programación.
-- EventBridge evita ejecuciones manuales innecesarias.
-- Athena cobra por datos escaneados, por lo que se recomienda usar Parquet y particiones.
-- Se limita el número de páginas consultadas de TMDb.
-- No se utilizan servicios de cómputo permanente si no son necesarios.
+- Uso de Secrets Manager para API Key de TMDb.
+- IAM Roles con principio de menor privilegio.
+- Separación de permisos por Lambda.
+- Control de lectura y escritura por ruta S3.
+- Permisos específicos para Athena, Glue y S3 Gold.
+- No exposición de secretos en GitHub.
+- Capturas de evidencia sin mostrar claves o credenciales.
 
 ---
 
-## 10. Decisiones de diseño
+## 9. Decisiones de arquitectura
 
 | Decisión | Justificación |
 |---|---|
-| Usar S3 como Data Lake | Permite almacenamiento barato, escalable y compatible con Athena. |
-| Separar Bronze, Silver y Gold | Facilita trazabilidad, limpieza y consumo analítico. |
-| Usar Lambda para ingesta | Evita mantener servidores y reduce complejidad. |
-| Usar Secrets Manager | Protege la API Key y parámetros sensibles. |
-| Usar Athena | Permite SQL directo sobre S3 sin levantar base de datos dedicada. |
-| Usar Power BI | Facilita visualización y presentación ejecutiva. |
-| Usar EventBridge | Automatiza ejecuciones con bajo costo operativo. |
+| Usar S3 como Data Lake | Escalable, económico y compatible con Athena. |
+| Usar arquitectura Bronze/Silver/Gold | Facilita trazabilidad, limpieza y análisis de negocio. |
+| Usar Lambda | Evita servidores permanentes y reduce costos. |
+| Usar EventBridge | Permite ingesta programada y controlada. |
+| Usar S3 Event Notification | Automatiza el paso de Bronze a Silver. |
+| Usar Athena CTAS para Gold | Permite generar tablas analíticas sin motor de base de datos dedicado. |
+| Usar Power BI | Facilita visualización ejecutiva y consumo por usuarios de negocio. |
+| No usar EMR/Redshift/RDS | El volumen no justifica servicios más pesados o costosos. |
+
+---
+
+## 10. Consideraciones de costo
+
+El diseño se mantiene en servicios serverless o bajo demanda:
+
+- Lambda cobra por ejecución.
+- S3 cobra por almacenamiento.
+- Athena cobra por datos escaneados.
+- EventBridge tiene costo bajo para programación.
+- Glue Crawler se ejecuta solo cuando es necesario.
+- Power BI se usa como herramienta externa de visualización.
+
+La programación lunes y viernes reduce ejecuciones innecesarias y mantiene un balance razonable entre actualización y costo.
 
 ---
 
 ## 11. Limitaciones
 
-- La solución depende de disponibilidad y límites de TMDb API.
-- No se implementó necesariamente un ambiente productivo multiusuario.
-- El gobierno de datos avanzado no forma parte del alcance base.
-- La capa Gold depende de las consultas y reglas definidas por el equipo.
-- El rendimiento de Power BI depende de la configuración ODBC y de Athena.
-- Las capturas y evidencias deben agregarse en la carpeta `img/`.
+- TMDb es una fuente externa y no refleja consumo interno real de la plataforma.
+- El análisis no incluye costos de licenciamiento ni disponibilidad legal de títulos.
+- Power BI Desktop requiere actualización manual.
+- La actualización productiva requiere Power BI Service y Gateway.
+- No se implementa personalización por usuario.
+- La solución está optimizada para volúmenes bajos o moderados.
 
 ---
 
 ## 12. Mejoras futuras
 
-- Crear infraestructura con CloudFormation o Terraform.
+- Automatizar infraestructura con CloudFormation.
 - Agregar pruebas automáticas de calidad de datos.
-- Implementar particionamiento más robusto.
-- Agregar monitoreo con alarmas de CloudWatch.
-- Automatizar transformación Silver y Gold.
 - Incorporar más endpoints de TMDb.
-- Implementar dashboards más completos en Power BI.
-- Usar Lake Formation para gobierno de datos si el proyecto crece.
+- Publicar dashboard en Power BI Service.
+- Programar refresh con Power BI Gateway.
+- Agregar métricas de costo de licenciamiento si estuvieran disponibles.
+- Combinar datos TMDb con métricas internas de visualización de la plataforma.
+- Implementar un modelo de recomendación en una fase posterior.
 
 ---
 
 ## 13. Conclusión
 
-La arquitectura implementada permite demostrar un flujo moderno de analítica en AWS usando servicios serverless y administrados. El sistema cubre ingesta, almacenamiento, transformación, catálogo, consulta y visualización, manteniendo una separación clara por capas y una estructura adecuada para documentación y entrega en GitHub.
+La arquitectura permite a una plataforma de streaming transformar datos externos de TMDb en indicadores útiles para gestión de catálogo. El flujo automatizado Bronze, Silver y Gold permite trazabilidad, limpieza, análisis y visualización ejecutiva sin utilizar servicios pesados o infraestructura permanente innecesaria.
