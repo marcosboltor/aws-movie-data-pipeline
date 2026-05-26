@@ -1,165 +1,168 @@
-# Solicitud de Propuesta (RFP)  
-# Implementación de Infraestructura de Datos para Analítica de TMDb en AWS
+# Request for Proposal (RFP)  
+# Streaming Platform - Data Infrastructure for Catalog Management
 
-**Proyecto:** Data Lake AWS/TMDb  
-**Fuente de datos:** TMDb API  
-**Fecha:** Mayo 2026  
-**Repositorio sugerido:** `aws-tmdb-data-lake`
-
----
-
-## 1. Introducción y antecedentes
-
-El proyecto AWS/TMDb tiene como propósito construir una infraestructura de datos en la nube para extraer, almacenar, transformar, consultar y visualizar información de películas provenientes de la API de TMDb.
-
-El sistema busca resolver una necesidad analítica concreta: disponer de un flujo reproducible y automatizado que permita consultar información histórica y actualizada sobre películas populares, métricas de audiencia, popularidad, votos, géneros, fechas de estreno e idioma original.
-
-La solución se plantea bajo una arquitectura tipo Data Lake con capas Medallion: Bronze, Silver y Gold. El diseño prioriza servicios administrados de AWS, bajo costo operativo y uso eficiente de recursos, procurando mantenerse dentro de un enfoque compatible con Free Tier cuando sea posible.
+**Client:** Streaming Platform  
+**Project:** Audiovisual catalog analytics with TMDb and AWS  
+**Date:** May 2026
 
 ---
 
-## 2. Objetivo del RFP
+## 1. Introduction and Background
 
-Solicitar una propuesta técnica para diseñar e implementar una solución de datos en AWS que permita:
+A streaming platform needs to strengthen its catalog decision-making process. Currently, movie selection, promotion, and prioritization need to be supported by recent market data in order to identify which titles and genres show stronger performance.
 
-- Extraer datos desde la API de TMDb.
-- Almacenar datos crudos en Amazon S3.
-- Transformar y limpiar la información en capas intermedias.
-- Generar datasets analíticos en una capa Gold.
-- Consultar la información mediante Amazon Athena.
-- Visualizar resultados en Power BI.
-- Automatizar la ingesta mediante Amazon EventBridge y AWS Lambda.
+The company seeks to analyze external information from TMDb to understand popularity, average rating, vote volume, genres, and recent movie trends. This information will complement editorial and commercial catalog criteria with analytical evidence.
+
+To address this need, a data solution on AWS is requested to automate the ingestion, transformation, querying, and visualization of information relevant to catalog management.
 
 ---
 
-## 3. Alcance técnico requerido
+## 2. RFP Objective
 
-La propuesta debe cubrir los siguientes elementos técnicos.
+The objective of this request is to select a technical proposal to implement a data architecture on AWS that allows the streaming platform to analyze popular movies and generate indicators useful for catalog decisions.
 
-### 3.1 Arquitectura de datos
+The solution must support, through analytical tables and executive visualizations, questions such as:
 
-La solución debe implementar una arquitectura por capas:
-
-- **Bronze:** almacenamiento de datos crudos provenientes de TMDb.
-- **Silver:** datos limpios, tipados y normalizados.
-- **Gold:** datos refinados para consulta analítica y visualización.
-
-### 3.2 Ingesta de datos
-
-La ingesta debe realizarse desde la API de TMDb utilizando una función AWS Lambda. La configuración sensible, como API Key, URL base, endpoint y bucket de destino, debe gestionarse mediante AWS Secrets Manager o variables configurables de entorno.
-
-### 3.3 Almacenamiento
-
-Los datos deben almacenarse en Amazon S3, organizados por prefijos o carpetas lógicas para separar las capas del Data Lake. La estructura utilizada en el proyecto contempla rutas equivalentes a:
-
-- `1bronce/`
-- `2silver/`
-- `3gold/`
-
-Cuando aplique, los datos deben escribirse en formato Parquet para mejorar eficiencia de consulta en Athena.
-
-### 3.4 Catálogo y consulta
-
-La solución debe utilizar AWS Glue Crawler y AWS Glue Data Catalog para registrar tablas y metadatos consultables desde Amazon Athena. Athena será el motor principal de consulta SQL sobre los archivos almacenados en S3.
-
-### 3.5 Automatización
-
-La ejecución periódica de la ingesta debe automatizarse con Amazon EventBridge, disparando la función Lambda en la frecuencia definida por el equipo. En el proyecto se trabajó con una programación controlada para reducir costos y evitar ejecuciones innecesarias.
-
-### 3.6 Visualización
-
-La capa de consumo debe permitir conexión con Power BI. En la implementación se validó una conexión mediante ODBC genérico hacia Amazon Athena, permitiendo consultar resultados analíticos desde Power BI.
-
-### 3.7 Seguridad y gobernanza
-
-La solución debe considerar:
-
-- Uso de IAM con principio de menor privilegio.
-- Manejo seguro de credenciales mediante Secrets Manager.
-- Separación lógica de capas en S3.
-- Control de acceso a consultas y resultados de Athena.
-- Evitar exponer la API Key en código fuente.
+- Which genres have the best recent performance?
+- Which movies should be recommended or promoted?
+- Which movies are popular but have low ratings?
+- Which genres are growing in popularity?
 
 ---
 
-## 4. Requerimientos de la propuesta
+## 3. Required Technical Scope
 
-La propuesta deberá incluir:
+The proposal must cover the following components.
 
-| Sección | Contenido esperado |
+### 3.1 Data Source
+
+The solution must consume information from the TMDb API, specifically from the popular movies endpoint. The API Key must be managed securely and must not be exposed in the source code.
+
+### 3.2 Data Architecture
+
+A Medallion architecture is required with the following layers:
+
+| Layer | Purpose |
 |---|---|
-| Perfil del equipo | Experiencia del equipo en AWS, Python, SQL, almacenamiento en S3 y analítica de datos. |
-| Metodología de trabajo | Fases de diseño, implementación, validación, documentación y entrega. |
-| Arquitectura propuesta | Servicios AWS utilizados y justificación técnica. |
-| Procesamiento de datos | Descripción del flujo Bronze, Silver y Gold. |
-| Seguridad | Gestión de secretos, permisos IAM y protección de credenciales. |
-| Entregables | Código, documentación, diagramas, evidencias, presentación y pruebas. |
-| Costos y tiempos | Estimación general de ejecución, considerando uso eficiente de recursos. |
+| Bronze | Store raw TMDb data by ingestion date. |
+| Silver | Generate clean, filtered, structured data in Parquet format. |
+| Gold | Create analytical tables aligned with catalog-related business questions. |
+
+### 3.3 Pipeline Automation
+
+The flow must be automated end to end:
+
+1. EventBridge schedules the ingestion.
+2. Lambda queries TMDb and stores data in Bronze.
+3. S3 Event Notification triggers the Silver transformation.
+4. Silver automatically invokes Gold generation.
+5. Athena creates or updates Gold tables using CTAS.
+6. Power BI consumes Gold from Athena.
+
+### 3.4 Analytical Querying
+
+Amazon Athena must be used as the SQL engine to query data stored in S3. AWS Glue Data Catalog must register the required metadata so tables can be queried.
+
+### 3.5 Visualization
+
+Power BI Desktop must connect to Athena through ODBC to build an executive dashboard with catalog indicators. For a production scenario, the proposal must consider the possibility of publishing the report to Power BI Service and refreshing it through Power BI Gateway.
+
+### 3.6 Security
+
+The proposal must consider:
+
+- Secret management with AWS Secrets Manager.
+- IAM roles with the minimum required permissions.
+- Protection of S3 paths.
+- No credential exposure in GitHub.
+- Logical separation of data layers.
 
 ---
 
-## 5. Criterios de evaluación
+## 4. Proposal Requirements
 
-La propuesta será evaluada con base en los siguientes criterios:
-
-- **Comprensión técnica del problema:** 40%.
-- **Viabilidad de la arquitectura propuesta:** 25%.
-- **Automatización y reproducibilidad:** 15%.
-- **Claridad de documentación y evidencias:** 10%.
-- **Control de costos y uso responsable de recursos:** 10%.
+| Section | Expected Content |
+|---|---|
+| Team Profile | Experience in AWS, Python, SQL, data modeling, and visualization. |
+| Methodology | Design, implementation, validation, and delivery phases. |
+| Architecture | Proposed AWS services and complete data flow. |
+| Ingestion | Strategy to consume TMDb API and store raw snapshots. |
+| Transformation | Rules for cleaning, filtering, and structuring data. |
+| Gold Layer | Analytical tables oriented to catalog decisions. |
+| Visualization | Athena-Power BI connection and executive dashboard proposal. |
+| Security | Secret management, IAM permissions, and repository protection. |
+| Costs | Justification of serverless and on-demand services. |
+| Deliverables | Code, documentation, diagrams, evidence, and presentation. |
 
 ---
 
-## 6. Entregables esperados
+## 5. Minimum Business Rules
 
-Los entregables mínimos del proyecto son:
+The solution must consider the following rules:
 
-- Código fuente de ingesta y transformación.
-- Scripts SQL utilizados en Athena.
-- Documentación funcional.
-- Documentación técnica.
-- Documentación de arquitectura.
+- Only movies with `vote_count >= 100` are considered to avoid non-representative ratings.
+- The Gold layer works with a 30-day rolling window.
+- If a movie appears multiple times across historical runs, Gold uses the most recent record.
+- A movie may belong to multiple genres; genre analysis must account for this relationship.
+- Performance must combine popularity, rating, and vote volume.
+- Power BI only consumes processed data; it does not modify the Data Lake.
+
+---
+
+## 6. Expected Gold Tables
+
+| Gold Table | Business Question | Expected Use |
+|---|---|---|
+| `gold_performance_genero` | Which genres have the best recent performance? | Identify attractive genres to strengthen the catalog. |
+| `gold_ranking_peliculas` | Which movies should be recommended or promoted? | Prioritize titles with a strong mix of popularity, rating, and votes. |
+| `gold_peliculas_sobreexpuestas` | Which movies are popular but have low ratings? | Detect content that may not meet user expectations. |
+| `gold_tendencia_generos` | Which genres are growing in popularity? | Identify recent trends for acquisition and promotion. |
+
+---
+
+## 7. Evaluation Criteria
+
+Proposals will be evaluated according to:
+
+| Criterion | Weight |
+|---|---|
+| Understanding of the streaming business case | 25% |
+| Soundness of the AWS architecture | 25% |
+| Pipeline automation and traceability | 20% |
+| Usefulness of Gold tables and executive visualization | 15% |
+| Security and cost management | 10% |
+| Documentation clarity and ease of replication | 5% |
+
+---
+
+## 8. Expected Deliverables
+
+- Structured GitHub repository.
+- Lambda source code.
+- Athena SQL queries for Gold.
+- Infrastructure template or infrastructure documentation.
+- Functional documentation.
+- Technical documentation.
+- Architecture documentation.
 - SOW.
 - RFP.
-- Diagrama de arquitectura.
-- Diagrama de flujo o secuencia del pipeline.
-- Capturas de evidencia de implementación en AWS.
-- Presentación ejecutiva.
-- Instructivo para replicar el proyecto.
-- Pruebas realizadas, cuando apliquen.
+- Architecture and flow diagrams.
+- AWS implementation screenshots.
+- Evidence of Power BI-Athena connection.
+- Executive presentation.
 
 ---
 
-## 7. Condiciones de entrega
+## 9. Constraints
 
-El proyecto deberá entregarse en un repositorio de GitHub con estructura clara. Se recomienda mantener la documentación en formato Markdown para que sea visible directamente desde GitHub, y opcionalmente exportarla a PDF si el profesor lo solicita.
-
-Estructura sugerida:
-
-```text
-deploy/
-docs/
-iac/
-img/
-ppt/
-src/
-tests/
-README.md
-```
+- The solution must avoid unnecessary permanent services.
+- Credentials and API Keys must not be exposed.
+- Redshift, RDS, EMR, Glue Jobs, or QuickSight are not required as part of the production pipeline.
+- The solution must be suitable for a low to moderate data volume.
+- The design must favor serverless and on-demand services.
 
 ---
 
-## 8. Restricciones y supuestos
+## 10. Conclusion
 
-- La solución se construye con fines académicos.
-- Se prioriza el uso de servicios administrados de AWS.
-- Se evita incluir credenciales, API Keys o secretos en el repositorio.
-- El procesamiento se diseña para un volumen manejable de datos de TMDb.
-- Power BI funciona como herramienta externa de visualización conectada a Athena.
-- La infraestructura puede documentarse aunque no todos los recursos se desplieguen mediante CloudFormation, si el alcance real del proyecto fue implementado manualmente desde consola.
-
----
-
-## 9. Conclusión
-
-El proyecto solicitado debe demostrar un flujo integral de datos en AWS: desde la ingesta de información desde TMDb hasta la consulta y visualización de indicadores analíticos. La propuesta debe ser técnicamente defendible, reproducible, segura y suficientemente documentada para permitir su revisión en GitHub.
+The requested solution must allow a streaming platform to transform external TMDb data into actionable information for catalog management. The focus is not only on storing data, but on generating analytical tables and visualizations that support decisions about genres, movies, promotion, and market trends.
