@@ -111,10 +111,3 @@ Use ODBC Athena connection and query the Gold tables from:
 db_movies_tmdb
 ```
 
-## 9. Save evidence screenshots
-
-Place screenshots in:
-
-```text
-img/screenshots/
-```
