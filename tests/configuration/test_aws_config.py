@@ -1,13 +1,13 @@
 """
-Pruebas de Configuración — Validación de servicios AWS y constantes
+Configuration Tests — AWS Services and Constants Validation
 
-Valida que las configuraciones del pipeline sean correctas:
-  - Credenciales y secretos de Secrets Manager
-  - Nombres de buckets y prefijos S3
-  - Configuración de Athena (database, output location)
-  - Constantes del mapa de géneros
-  - Nombres de funciones Lambda referenciadas
-  - Variables de entorno necesarias
+Validates that the configurations of the pipeline are correct:
+  - Secrets Manager credentials and settings
+  - S3 bucket names and prefixes
+  - Athena configuration (database name, query results output location)
+  - Official Genre Map constants
+  - Target Lambda function names and invoke structures
+  - Data quality thresholds and filters
 """
 
 import inspect
@@ -38,20 +38,20 @@ from silver_tmdb_to_gold import (
 
 
 # ═══════════════════════════════════════════
-# 1. Configuración de Secrets Manager
+# 1. Secrets Manager Configuration
 # ═══════════════════════════════════════════
 
 class TestSecretsManagerConfig:
-    """Pruebas de configuración de AWS Secrets Manager."""
+    """Tests for AWS Secrets Manager settings."""
 
     def test_secret_name_is_correct(self):
-        """Verifica que el SecretId usado coincide con el nombre esperado."""
-        # La función get_config usa "lambda-tmdb_to_bronze-s3"
+        """Verifies that the SecretId matches the expected resource name."""
+        # get_config function uses "lambda-tmdb_to_bronze-s3"
         source = inspect.getsource(tmdb_to_bronze.get_config)
         assert "lambda-tmdb_to_bronze-s3" in source
 
     def test_secret_contains_required_keys(self):
-        """Verifica que el secreto contiene todas las claves requeridas."""
+        """Verifies that the secret JSON contains all expected configuration keys."""
         required_keys = {
             "TMDB_API_KEY",
             "TMDB_BASE_URL",
@@ -71,80 +71,80 @@ class TestSecretsManagerConfig:
         assert required_keys.issubset(mock_secret.keys())
 
     def test_secrets_manager_region_is_us_east_2(self):
-        """Verifica que el cliente de Secrets Manager usa la región us-east-2."""
+        """Verifies that Secrets Manager client specifies the us-east-2 region."""
         source = inspect.getsource(tmdb_to_bronze)
         assert 'region_name="us-east-2"' in source
 
 
 # ═══════════════════════════════════════════
-# 2. Configuración de S3 (Buckets y Prefijos)
+# 2. S3 Configuration (Buckets and Prefixes)
 # ═══════════════════════════════════════════
 
 class TestS3Config:
-    """Pruebas de configuración de Amazon S3."""
+    """Tests for Amazon S3 bucket names and prefix configurations."""
 
     def test_silver_bucket_name_matches(self):
-        """Verifica que el bucket de Silver coincide con la convención del proyecto."""
+        """Verifies that the Silver bucket name conforms to project specifications."""
         assert SILVER_BUCKET_NAME == "unam-2026-ingenieriadatos-equipo1-997622531618-us-east-2-an"
 
     def test_silver_prefix_is_correct(self):
-        """Verifica el prefijo Silver."""
+        """Verifies that the Silver prefix matches expected standard path."""
         assert SILVER_PREFIX == "2silver/movies"
 
     def test_gold_bucket_name_matches(self):
-        """Verifica que el bucket de Gold coincide."""
+        """Verifies that the Gold bucket name matches project specifications."""
         assert GOLD_BUCKET_NAME == "unam-2026-ingenieriadatos-equipo1-997622531618-us-east-2-an"
 
     def test_gold_base_path_format(self):
-        """Verifica que GOLD_BASE_PATH sigue el formato S3 correcto."""
+        """Verifies that GOLD_BASE_PATH is a valid S3 path string."""
         assert GOLD_BASE_PATH.startswith("s3://")
         assert "3gold" in GOLD_BASE_PATH
 
     def test_gold_prefixes_list_has_four_entries(self):
-        """Verifica que hay exactamente 4 prefijos Gold para limpiar."""
+        """Verifies that exactly 4 Gold prefixes are configured for cleanups."""
         assert len(GOLD_PREFIXES) == 4
 
     def test_gold_prefixes_all_start_with_3gold(self):
-        """Verifica que todos los prefijos Gold comienzan con '3gold/'."""
+        """Verifies that all S3 Gold prefixes correctly begin with '3gold/'."""
         for prefix in GOLD_PREFIXES:
-            assert prefix.startswith("3gold/"), f"Prefix {prefix} no comienza con '3gold/'"
+            assert prefix.startswith("3gold/"), f"Prefix {prefix} does not start with '3gold/'"
 
     def test_bronze_prefix_in_handler_validation(self):
-        """Verifica que el handler Bronze→Silver filtra por el prefijo correcto."""
+        """Verifies that the Bronze to Silver event handler filters for correct S3 input prefix."""
         source = inspect.getsource(bronze_silver_handler)
         assert "1bronce/tmdb/popular/" in source
 
 
 # ═══════════════════════════════════════════
-# 3. Configuración de Athena
+# 3. Athena Configuration
 # ═══════════════════════════════════════════
 
 class TestAthenaConfig:
-    """Pruebas de configuración de Amazon Athena."""
+    """Tests for Amazon Athena execution configurations."""
 
     def test_database_name_is_correct(self):
-        """Verifica que el nombre de la base de datos Athena es correcto."""
+        """Verifies that the target Athena Glue database name is correct."""
         assert DATABASE == "db_movies_tmdb"
 
     def test_output_location_is_s3_path(self):
-        """Verifica que OUTPUT_ATHENA es una ruta S3 válida."""
+        """Verifies that OUTPUT_ATHENA is configured as a valid S3 path."""
         assert OUTPUT_ATHENA.startswith("s3://")
         assert "athena" in OUTPUT_ATHENA.lower()
 
     def test_output_location_uses_project_bucket(self):
-        """Verifica que la salida de Athena usa el bucket del proyecto."""
+        """Verifies that the Athena query output location uses the project S3 bucket."""
         assert GOLD_BUCKET_NAME in OUTPUT_ATHENA
 
 
 # ═══════════════════════════════════════════
-# 4. Configuración del mapa de géneros
+# 4. Genre Map Configuration
 # ═══════════════════════════════════════════
 
 class TestGenreMapConfig:
-    """Pruebas de configuración del mapeo de géneros TMDb."""
+    """Tests for the TMDb genre ID mapper configuration."""
 
     def test_genre_map_has_expected_entries(self):
-        """Verifica que el GENRE_MAP contiene al menos los géneros principales."""
+        """Verifies that the GENRE_MAP contains all main expected movie genres."""
         expected_genres = [
             "Action", "Adventure", "Animation", "Comedy", "Crime",
             "Documentary", "Drama", "Family", "Fantasy", "History",
@@ -153,24 +153,24 @@ class TestGenreMapConfig:
         ]
 
         for genre in expected_genres:
-            assert genre in GENRE_MAP.values(), f"Género '{genre}' no encontrado en GENRE_MAP"
+            assert genre in GENRE_MAP.values(), f"Genre '{genre}' not found in GENRE_MAP"
 
     def test_genre_map_has_19_entries(self):
-        """Verifica que hay exactamente 19 géneros mapeados (estándar TMDb)."""
+        """Verifies that exactly 19 official genres are mapped in the static catalog."""
         assert len(GENRE_MAP) == 19
 
     def test_genre_map_keys_are_integers(self):
-        """Verifica que todas las claves del GENRE_MAP son enteros."""
+        """Verifies that all genre ID keys in the static catalog are integers."""
         for key in GENRE_MAP.keys():
-            assert isinstance(key, int), f"Clave {key} no es entero"
+            assert isinstance(key, int), f"Key {key} is not an integer"
 
     def test_genre_map_values_are_strings(self):
-        """Verifica que todos los valores del GENRE_MAP son strings."""
+        """Verifies that all genre text values in the static catalog are strings."""
         for value in GENRE_MAP.values():
-            assert isinstance(value, str), f"Valor {value} no es string"
+            assert isinstance(value, str), f"Value {value} is not a string"
 
     def test_key_genre_ids_match_tmdb_official(self):
-        """Verifica que los IDs principales coinciden con los de TMDb."""
+        """Verifies that the principal genre keys match TMDb official mappings."""
         official_mappings = {
             28: "Action",
             12: "Adventure",
@@ -187,41 +187,41 @@ class TestGenreMapConfig:
 
 
 # ═══════════════════════════════════════════
-# 5. Configuración de Lambdas referenciadas
+# 5. Downstream Lambda Reference Configuration
 # ═══════════════════════════════════════════
 
 class TestLambdaReferenceConfig:
-    """Pruebas de configuración de funciones Lambda referenciadas."""
+    """Tests for referenced target Lambda functions settings."""
 
     def test_gold_lambda_name_is_correct(self):
-        """Verifica que el nombre de la Lambda Gold referenciada es correcto."""
+        """Verifies that the referenced Gold Lambda name is correct."""
         assert GOLD_LAMBDA_NAME == "silver_tmdb_to_gold"
 
     def test_gold_lambda_invocation_uses_event_type(self):
-        """Verifica que la invocación usa InvocationType='Event' (asíncrono)."""
+        """Verifies that the downstream invocation uses 'Event' (asynchronous execution)."""
         source = inspect.getsource(invoke_gold_lambda)
         assert '"Event"' in source or "'Event'" in source
 
 
 # ═══════════════════════════════════════════
-# 6. Configuración de calidad de datos
+# 6. Data Quality Rules Configuration
 # ═══════════════════════════════════════════
 
 class TestDataQualityConfig:
-    """Pruebas de configuración de reglas de calidad."""
+    """Tests for data quality threshold rules configuration."""
 
     def test_vote_count_threshold_is_100(self):
-        """Verifica que el umbral de vote_count es 100."""
+        """Verifies that the minimum vote count threshold is set to 100."""
         source = inspect.getsource(apply_data_quality)
         assert "100" in source
 
     def test_deduplication_uses_id_column(self):
-        """Verifica que la deduplicación se hace por la columna 'id'."""
+        """Verifies that deduplication filters utilize the 'id' column."""
         source = inspect.getsource(apply_data_quality)
         assert '"id"' in source or "'id'" in source
 
     def test_null_check_covers_id_and_title(self):
-        """Verifica que se validan nulos en 'id' y 'title'."""
+        """Verifies that null validation checks verify 'id' and 'title' fields."""
         source = inspect.getsource(apply_data_quality)
         assert '"id"' in source
         assert '"title"' in source

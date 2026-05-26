@@ -1,11 +1,11 @@
 """
-Pruebas Unitarias — Lambda silver_to_gold (Silver → Gold)
+Unit Tests — Lambda silver_to_gold (Silver → Gold)
 
-Valida las funciones de la capa Gold:
-  - Ejecución y polling de queries Athena
-  - Limpieza de prefijos S3
-  - Secuencia de DROP → clean → CTAS en el handler
-  - Manejo de errores en queries fallidas
+Validates the functions of the Gold layer:
+  - Athena query execution and polling status
+  - S3 prefix directory cleanups
+  - Handler sequence execution: DROP → clean → CTAS queries
+  - Error propagation on failed queries
 """
 
 import json
@@ -29,15 +29,15 @@ BUCKET = "unam-2026-ingenieriadatos-equipo1-997622531618-us-east-2-an"
 
 
 # ═══════════════════════════════════════════
-# 1. Tests para wait_for_query()
+# 1. Tests for wait_for_query()
 # ═══════════════════════════════════════════
 
 class TestWaitForQuery:
-    """Pruebas del polling de estado de queries Athena."""
+    """Tests for polling status from Athena queries."""
 
     @patch("silver_tmdb_to_gold.athena_client")
     def test_waits_until_succeeded(self, mock_athena):
-        """Verifica que retorna correctamente cuando el query finaliza en SUCCEEDED."""
+        """Verifies that polling returns correctly when the query finishes in SUCCEEDED."""
         mock_athena.get_query_execution.side_effect = [
             {"QueryExecution": {"Status": {"State": "RUNNING"}}},
             {"QueryExecution": {"Status": {"State": "RUNNING"}}},
@@ -50,7 +50,7 @@ class TestWaitForQuery:
 
     @patch("silver_tmdb_to_gold.athena_client")
     def test_raises_on_failed_query(self, mock_athena):
-        """Verifica que lanza excepción cuando el query falla."""
+        """Verifies that an exception is raised when the query fails."""
         mock_athena.get_query_execution.return_value = {
             "QueryExecution": {
                 "Status": {
@@ -65,7 +65,7 @@ class TestWaitForQuery:
 
     @patch("silver_tmdb_to_gold.athena_client")
     def test_raises_on_cancelled_query(self, mock_athena):
-        """Verifica que lanza excepción cuando el query es cancelado."""
+        """Verifies that an exception is raised when the query is cancelled."""
         mock_athena.get_query_execution.return_value = {
             "QueryExecution": {
                 "Status": {
@@ -80,16 +80,16 @@ class TestWaitForQuery:
 
 
 # ═══════════════════════════════════════════
-# 2. Tests para run_query()
+# 2. Tests for run_query()
 # ═══════════════════════════════════════════
 
 class TestRunQuery:
-    """Pruebas de ejecución de queries Athena."""
+    """Tests for executing Athena queries."""
 
     @patch("silver_tmdb_to_gold.wait_for_query")
     @patch("silver_tmdb_to_gold.athena_client")
     def test_starts_query_with_correct_params(self, mock_athena, mock_wait):
-        """Verifica que start_query_execution recibe database y output correctos."""
+        """Verifies that start_query_execution receives database and output location parameters correctly."""
         mock_athena.start_query_execution.return_value = {
             "QueryExecutionId": "exec-abc"
         }
@@ -105,7 +105,7 @@ class TestRunQuery:
     @patch("silver_tmdb_to_gold.wait_for_query")
     @patch("silver_tmdb_to_gold.athena_client")
     def test_passes_execution_id_to_wait(self, mock_athena, mock_wait):
-        """Verifica que el execution_id se pasa correctamente a wait_for_query."""
+        """Verifies that the execution_id is correctly passed to wait_for_query."""
         mock_athena.start_query_execution.return_value = {
             "QueryExecutionId": "unique-id-789"
         }
@@ -115,15 +115,15 @@ class TestRunQuery:
 
 
 # ═══════════════════════════════════════════
-# 3. Tests para clean_s3_prefix()
+# 3. Tests for clean_s3_prefix()
 # ═══════════════════════════════════════════
 
 class TestCleanS3Prefix:
-    """Pruebas de limpieza de prefijos S3."""
+    """Tests for S3 prefix deletion operations."""
 
     @patch("silver_tmdb_to_gold.s3_client")
     def test_deletes_all_objects_in_prefix(self, mock_s3):
-        """Verifica que todos los objetos bajo un prefijo son eliminados."""
+        """Verifies that all S3 objects under a prefix are deleted."""
         paginator = MagicMock()
         paginator.paginate.return_value = [
             {"Contents": [{"Key": "3gold/test/file1.parquet"}, {"Key": "3gold/test/file2.parquet"}]}
@@ -138,7 +138,7 @@ class TestCleanS3Prefix:
 
     @patch("silver_tmdb_to_gold.s3_client")
     def test_handles_empty_prefix(self, mock_s3):
-        """Verifica que no falla cuando el prefijo está vacío."""
+        """Verifies that no exception is raised when the prefix is empty."""
         paginator = MagicMock()
         paginator.paginate.return_value = [{}]  # No "Contents" key
         mock_s3.get_paginator.return_value = paginator
@@ -149,7 +149,7 @@ class TestCleanS3Prefix:
 
     @patch("silver_tmdb_to_gold.s3_client")
     def test_batch_deletes_over_1000_objects(self, mock_s3):
-        """Verifica que se usan lotes de 1000 para la eliminación masiva."""
+        """Verifies that batch operations delete objects in limits of 1000 items."""
         # Simulate 1500 objects
         objects = [{"Key": f"3gold/big/file{i}.parquet"} for i in range(1500)]
         paginator = MagicMock()
@@ -163,16 +163,16 @@ class TestCleanS3Prefix:
 
 
 # ═══════════════════════════════════════════
-# 4. Tests para lambda_handler
+# 4. Tests for lambda_handler
 # ═══════════════════════════════════════════
 
 class TestSilverToGoldHandler:
-    """Pruebas del entry-point de la Lambda Silver→Gold."""
+    """Tests for the Silver to Gold Lambda handler entry-point."""
 
     @patch("silver_tmdb_to_gold.clean_s3_prefix")
     @patch("silver_tmdb_to_gold.run_query")
     def test_handler_drops_tables_first(self, mock_run, mock_clean):
-        """Verifica que se ejecutan los DROP TABLE antes de las CTAS."""
+        """Verifies that DROP TABLE queries are executed before CTAS builds."""
         result = lambda_handler({"test": True}, None)
 
         assert result["statusCode"] == 200
@@ -186,7 +186,7 @@ class TestSilverToGoldHandler:
     @patch("silver_tmdb_to_gold.clean_s3_prefix")
     @patch("silver_tmdb_to_gold.run_query")
     def test_handler_cleans_all_gold_prefixes(self, mock_run, mock_clean):
-        """Verifica que se limpian los 4 prefijos Gold en S3."""
+        """Verifies that the 4 S3 Gold prefixes are cleaned prior to building."""
         lambda_handler({}, None)
 
         assert mock_clean.call_count == 4
@@ -199,7 +199,7 @@ class TestSilverToGoldHandler:
     @patch("silver_tmdb_to_gold.clean_s3_prefix")
     @patch("silver_tmdb_to_gold.run_query")
     def test_handler_creates_four_gold_tables(self, mock_run, mock_clean):
-        """Verifica que se crean las 4 tablas CTAS Gold."""
+        """Verifies that the 4 S3 Gold CTAS tables are created successfully."""
         lambda_handler({}, None)
 
         ctas_calls = [
@@ -211,7 +211,7 @@ class TestSilverToGoldHandler:
     @patch("silver_tmdb_to_gold.clean_s3_prefix")
     @patch("silver_tmdb_to_gold.run_query")
     def test_handler_total_query_count(self, mock_run, mock_clean):
-        """Verifica el total de queries ejecutados: 5 DROP + 4 CTAS = 9."""
+        """Verifies the total queries executed count equals 9 (5 DROP + 4 CTAS)."""
         lambda_handler({}, None)
 
         assert mock_run.call_count == 9
@@ -219,7 +219,7 @@ class TestSilverToGoldHandler:
     @patch("silver_tmdb_to_gold.clean_s3_prefix")
     @patch("silver_tmdb_to_gold.run_query")
     def test_handler_propagates_query_error(self, mock_run, mock_clean):
-        """Verifica que un error en Athena se propaga correctamente."""
+        """Verifies that a query failure is propagated correctly by the handler."""
         mock_run.side_effect = Exception("Query falló con estado FAILED")
 
         with pytest.raises(Exception, match="FAILED"):
@@ -228,7 +228,7 @@ class TestSilverToGoldHandler:
     @patch("silver_tmdb_to_gold.clean_s3_prefix")
     @patch("silver_tmdb_to_gold.run_query")
     def test_ctas_queries_use_correct_database(self, mock_run, mock_clean):
-        """Verifica que las CTAS usan el database correcto (db_movies_tmdb)."""
+        """Verifies that the CTAS queries use the correct target Glue database."""
         lambda_handler({}, None)
 
         for c in mock_run.call_args_list:
@@ -239,7 +239,7 @@ class TestSilverToGoldHandler:
     @patch("silver_tmdb_to_gold.clean_s3_prefix")
     @patch("silver_tmdb_to_gold.run_query")
     def test_ctas_queries_use_parquet_format(self, mock_run, mock_clean):
-        """Verifica que todas las tablas Gold se crean en formato PARQUET."""
+        """Verifies that all Gold CTAS tables specify PARQUET as the format."""
         lambda_handler({}, None)
 
         for c in mock_run.call_args_list:

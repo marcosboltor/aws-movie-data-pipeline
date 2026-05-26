@@ -1,11 +1,11 @@
 """
-Pruebas Unitarias — Lambda tmdb_to_bronze (Ingesta TMDb → Bronze)
+Unit Tests — Lambda tmdb_to_bronze (TMDb Ingestion → Bronze)
 
-Valida las funciones individuales de la Lambda de ingesta:
-  - Recuperación de credenciales desde Secrets Manager
-  - Construcción del payload NDJSON
-  - Subida a S3 con la clave de partición correcta
-  - Manejo de errores de la API y de Secrets Manager
+Validates the individual functions of the ingestion Lambda:
+  - Credentials retrieval from Secrets Manager
+  - NDJSON payload construction
+  - S3 uploads with correct partition keys
+  - API and Secrets Manager error handling
 """
 
 import json
@@ -36,12 +36,12 @@ SAMPLE_SECRET = {
 
 
 def _build_api_page(page_num, movies):
-    """Construye una respuesta paginada de TMDb."""
+    """Builds a paginated TMDb API response."""
     return {"page": page_num, "total_pages": 5, "results": movies}
 
 
 def _movie(mid, title="Movie", vote_count=500, popularity=100.0, vote_average=7.0):
-    """Genera un registro mínimo de película."""
+    """Generates a minimal movie record."""
     return {
         "id": mid,
         "title": title,
@@ -58,15 +58,15 @@ def _movie(mid, title="Movie", vote_count=500, popularity=100.0, vote_average=7.
 
 
 # ═══════════════════════════════════════════
-# 1. Tests para get_config()
+# 1. Tests for get_config()
 # ═══════════════════════════════════════════
 
 class TestGetConfig:
-    """Pruebas unitarias para la recuperación de credenciales."""
+    """Unit tests for credentials retrieval."""
 
     @mock_aws
     def test_get_config_returns_valid_dict(self):
-        """Verifica que get_config devuelve el diccionario del secreto correctamente."""
+        """Verifies that get_config returns the correct secret dictionary."""
         # Arrange
         sm = boto3.client("secretsmanager", region_name=REGION)
         sm.create_secret(
@@ -87,7 +87,7 @@ class TestGetConfig:
 
     @mock_aws
     def test_get_config_raises_on_missing_secret(self):
-        """Verifica que lanza excepción si el secreto no existe."""
+        """Verifies that an exception is raised if the secret does not exist."""
         sm = boto3.client("secretsmanager", region_name=REGION)
 
         with patch("tmdb_to_bronze.secrets_client", sm):
@@ -96,16 +96,16 @@ class TestGetConfig:
 
 
 # ═══════════════════════════════════════════
-# 2. Tests para fetch_and_load()
+# 2. Tests for fetch_and_load()
 # ═══════════════════════════════════════════
 
 class TestFetchAndLoad:
-    """Pruebas unitarias para el proceso de ingesta y carga a S3."""
+    """Unit tests for ingestion and S3 uploading process."""
 
     @mock_aws
     @patch("tmdb_to_bronze.requests.get")
     def test_fetch_and_load_success(self, mock_get):
-        """Verifica flujo exitoso: 5 páginas → NDJSON en S3."""
+        """Verifies successful ingestion flow: 5 pages → NDJSON in S3."""
         # Arrange — Secrets Manager
         sm = boto3.client("secretsmanager", region_name=REGION)
         sm.create_secret(
@@ -148,7 +148,7 @@ class TestFetchAndLoad:
     @mock_aws
     @patch("tmdb_to_bronze.requests.get")
     def test_fetch_and_load_writes_valid_ndjson(self, mock_get):
-        """Verifica que el archivo subido a S3 es NDJSON válido."""
+        """Verifies that the uploaded file in S3 is a valid NDJSON."""
         sm = boto3.client("secretsmanager", region_name=REGION)
         sm.create_secret(Name=SECRET_NAME, SecretString=json.dumps(SAMPLE_SECRET))
 
@@ -167,7 +167,7 @@ class TestFetchAndLoad:
              patch("tmdb_to_bronze.s3", s3):
             fetch_and_load()
 
-        # Descargar y validar NDJSON
+        # Download and validate NDJSON
         objs = s3.list_objects_v2(Bucket=BUCKET, Prefix="1bronce/")
         key = objs["Contents"][0]["Key"]
         content = s3.get_object(Bucket=BUCKET, Key=key)["Body"].read().decode()
@@ -181,7 +181,7 @@ class TestFetchAndLoad:
     @mock_aws
     @patch("tmdb_to_bronze.requests.get")
     def test_s3_key_has_date_partitions(self, mock_get):
-        """Verifica que la clave S3 contiene particiones year/month/day."""
+        """Verifies that the S3 key contains year/month/day partitions."""
         sm = boto3.client("secretsmanager", region_name=REGION)
         sm.create_secret(Name=SECRET_NAME, SecretString=json.dumps(SAMPLE_SECRET))
 
@@ -209,7 +209,7 @@ class TestFetchAndLoad:
     @mock_aws
     @patch("tmdb_to_bronze.requests.get")
     def test_fetch_raises_on_api_error(self, mock_get):
-        """Verifica que una excepción HTTP se propaga correctamente."""
+        """Verifies that HTTP exceptions are correctly propagated."""
         sm = boto3.client("secretsmanager", region_name=REGION)
         sm.create_secret(Name=SECRET_NAME, SecretString=json.dumps(SAMPLE_SECRET))
 
@@ -224,7 +224,7 @@ class TestFetchAndLoad:
     @mock_aws
     @patch("tmdb_to_bronze.requests.get")
     def test_movies_cleaned_fields_only(self, mock_get):
-        """Verifica que solo se conservan los campos seleccionados (sin poster_path, etc.)."""
+        """Verifies that only selected fields are kept (no poster_path, etc.)."""
         sm = boto3.client("secretsmanager", region_name=REGION)
         sm.create_secret(Name=SECRET_NAME, SecretString=json.dumps(SAMPLE_SECRET))
 
@@ -256,15 +256,15 @@ class TestFetchAndLoad:
 
 
 # ═══════════════════════════════════════════
-# 3. Tests para lambda_handler
+# 3. Tests for lambda_handler
 # ═══════════════════════════════════════════
 
 class TestLambdaHandler:
-    """Pruebas unitarias del entry-point de la Lambda."""
+    """Unit tests for the Lambda entry-point handler."""
 
     @patch("tmdb_to_bronze.fetch_and_load")
     def test_lambda_handler_delegates_to_fetch_and_load(self, mock_fetch):
-        """Verifica que lambda_handler invoca fetch_and_load y retorna su resultado."""
+        """Verifies that lambda_handler invokes fetch_and_load and returns its result."""
         mock_fetch.return_value = {"statusCode": 200, "body": "ok"}
         result = lambda_handler({}, None)
 
