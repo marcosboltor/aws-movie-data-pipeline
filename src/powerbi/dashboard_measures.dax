@@ -1,0 +1,5 @@
+Total Peliculas = COUNT(Ranking_Peliculas[id])
+Calificacion Promedio = AVERAGE(Ranking_Peliculas[vote_average])
+Popularidad Promedio = AVERAGE(Ranking_Peliculas[popularity])
+Total Generos = COUNT(Performance_Genero[genre])Total Generos = COUNT(Performance_Genero[genre])
+Total Sobreexpuestas = COUNT(Peliculas_Sobreexpuestas[id])
