@@ -180,7 +180,7 @@ The pipeline adheres strictly to the **Principle of Least Privilege (PoLP)**, gr
 - **Transformation Role (`bronce_tmdb_to_silver`)**: Allows read access to the Bronze prefix, write access to the Silver prefix (`2silver/`) in Parquet format, and permission to trigger the Gold Lambda asynchronously.
 - **Business Aggregation Role (`silver_tmdb_to_gold`)**: Grants full Athena query execution rights, Glue Data Catalog management (creating/dropping tables and database partitions), and S3 read/write access to both Silver and Gold (`3gold/`) layers.
 - **Glue/Athena Analytics Role**: Assumed by analytical crawlers to discover schemas and index S3 partitions.
-- **Orchestration Scheduler Role**: Grants AWS EventBridge Scheduler permissions to trigger the ingestion Lambda on Mondays and Fridays at 08:00 during the academic project period.
+- **Orchestration Scheduler Role**: Grants AWS EventBridge Scheduler permissions to trigger the ingestion Lambda on Mondays and Fridays at 08:00 a.m.
 
 For a comprehensive catalog of all IAM roles and full permission policies, see the dedicated [IAM Security Manual](src/roles/README.md).
 
