@@ -1,144 +1,344 @@
-# AWS-TMDb-Medallion-Analytics
+# AWS Serverless Data Pipeline: TMDb Movie Analytics
 
-Automated movie market analytics pipeline using a Medallion Architecture on AWS.
+## Description
 
-![AWS](https://img.shields.io/badge/AWS-%23FF9900.svg?style=for-the-badge&logo=amazon-aws&logoColor=white)
-![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)
-![Apache Parquet](https://img.shields.io/badge/Apache%20Parquet-white?style=for-the-badge&logo=apache&logoColor=blue)
+**StreamSight TMDb Analytics** is a serverless data engineering project built on AWS to support movie catalog analytics for a streaming platform. The project uses data from the TMDb API to identify recent market behavior, evaluate movie performance, detect overexposed titles, and generate business-ready insights through a Bronze, Silver and Gold data lake architecture.
 
----
+The pipeline extracts popular movie data from TMDb, stores the raw responses in Amazon S3, transforms and cleans the data into a trusted Parquet format, and finally creates analytical Gold tables using Amazon Athena. The final results are consumed in Power BI through an ODBC connection to Athena.
 
-# 🎬 AWS Serverless Data Pipeline: TMDb Movie Analytics
+The goal of the project is to transform raw movie popularity data into useful information for catalog management, content recommendation, promotion decisions and genre trend analysis.
 
-## 1. Project Description
+## Business Questions
 
-This project implements an end-to-end **Data Engineering** solution on **Amazon Web Services (AWS)** for a streaming company. The goal is to automate the ingestion, transformation, and analysis of popular movie data from the **TMDb (The Movie Database)** API.
+The project answers four main business questions:
 
-The solution leverages a **Medallion Architecture** (Bronze, Silver, Gold) to ensure data traceability, scalability, and quality, enabling stakeholders to make strategic decisions regarding content acquisition and promotion based on popularity and rating metrics.
+1. **Which genres have the best recent performance?**  
+   Helps identify attractive genres that could strengthen the streaming catalog.
 
----
+2. **Which movies should be recommended or promoted?**  
+   Prioritizes titles with a strong combination of popularity, rating and vote volume.
 
-## 2. Business Purpose & Use Case
+3. **Which movies are popular but have low ratings?**  
+   Detects overexposed content that may generate user expectations but low satisfaction.
 
-The system is designed to answer critical business questions such as:
+4. **Which genres are increasing in popularity?**  
+   Identifies recent genre trends to support acquisition, recommendation and promotion strategies.
 
-- **Genre Performance:** Which movie categories are dominating the recent market?
-- **Recommendations:** Which titles have the best balance between popularity and audience/critic consensus?
-- **Overexposure Detection:** Identify highly popular movies with poor ratings to avoid oversaturating the catalog with low-quality content.
+## Data Source
 
----
+The project uses the TMDb API endpoint:
 
-## 3. Technology Stack
+```text
+/movie/popular
+```
 
-### Programming Languages
+Each pipeline execution retrieves multiple pages of popular movies and stores the extracted data with ingestion metadata such as source page, ingestion timestamp and ingestion date.
 
-- **Python** (AWS Lambda Functions)
+## Data Architecture
 
-### AWS Infrastructure & Services
+The solution follows a Medallion Architecture:
 
-- **Amazon S3:** Data Lake storage for Bronze, Silver, and Gold layers.
-- **AWS Lambda:** Serverless ingestion and transformation orchestration.
-- **Amazon EventBridge:** Cron-based scheduling (Mondays and Fridays at 8:00 AM).
-- **AWS Glue (Data Catalog & Crawler):** Schema management and metadata cataloging.
-- **Amazon Athena:** SQL query engine and analytical table generation via CTAS.
-- **AWS Secrets Manager:** Secure storage for TMDb API credentials.
-
-### Additional Technologies
-
-- **Apache Parquet:** Optimized columnar storage format for the Silver layer.
-- **SQL (Trino/Presto Dialect):** Complex transformations and genre `UNNEST` operations.
-- **NDJSON:** Raw ingestion file format.
-
----
-
-## 4. Data Architecture
-
-The pipeline is fully **event-driven**, minimizing idle infrastructure time and optimizing operational costs.
+```text
+TMDb API
+→ EventBridge Scheduler
+→ Lambda Bronze
+→ S3 Bronze
+→ S3 Event Notification
+→ Lambda Silver
+→ S3 Silver
+→ Lambda Gold
+→ Athena CTAS
+→ S3 Gold
+→ Power BI
+```
 
 ### Bronze Layer
 
-Raw NDJSON data captured directly from the TMDb API.
+The Bronze layer stores raw data extracted from the TMDb API.
+
+```text
+s3://<bucket>/1bronce/tmdb/popular/
+```
+
+Data is stored as NDJSON and keeps the original API response with additional ingestion metadata.
 
 ### Silver Layer
 
-Cleaned and deduplicated datasets with corrected data types and relevance filtering (`vote_count >= 100`).
+The Silver layer stores cleaned and structured data in Parquet format.
+
+```text
+s3://<bucket>/2silver/movies/
+```
+
+Main transformations include:
+
+- Type casting for dates, timestamps and numeric fields.
+- Genre ID mapping to readable genre names.
+- Removal of invalid or low-quality records.
+- Filtering movies with insufficient vote count.
+- Creation of an audience score.
+- Writing curated data in Parquet format.
 
 ### Gold Layer
 
-Optimized analytical tables using a rolling 30-day window for current trend analysis.
+The Gold layer contains business-ready analytical tables generated with Athena CTAS.
 
-## Architecture in AWS
+```text
+s3://<bucket>/3gold/
+```
 
-<img width="2964" height="1524" alt="WhatsApp Image 2026-05-14 at 5 56 53 p  m" src="https://github.com/user-attachments/assets/72bc2c96-cd94-400a-87fb-f413f3147c1b" />
----
+Gold tables:
 
-## 5. Data Flow
+```text
+gold_performance_genero
+gold_ranking_peliculas
+gold_peliculas_sobreexpuestas
+gold_tendencia_generos
+```
 
-1. **Ingestion**
-   Amazon EventBridge Scheduler triggers the `tmdb_to_bronze` Lambda function.
-2. **Bronze Storage**
-   Raw data is fetched from the TMDb API and stored in Amazon S3 as NDJSON files.
-3. **Event Notification**
-   An S3 Event Notification automatically invokes the `bronze_to_silver` Lambda.
-4. **Silver Processing**
-   Data is cleaned, normalized, filtered, and stored in Parquet format.
-5. **Gold Processing**
-   The Silver Lambda invokes the `silver_to_gold` Lambda function.
-6. **Analytics Generation**
-   Amazon Athena generates business-ready analytical tables using CTAS queries.
+These tables are designed to answer the business questions defined for the streaming catalog analysis.
 
----
+## Architecture Diagram
 
-## 6. Business Value (Gold Tables)
+![AWS Data Pipeline Architecture](img/architecture diagram.png)
 
-The Gold layer transforms raw datasets into actionable insights for the streaming business.
+## Tech Stack
 
-| Table                       | Business Purpose                                            |
-| --------------------------- | ----------------------------------------------------------- |
-| `gold_genre_performance`  | Identifies the most attractive genres for catalog expansion |
-| `gold_movie_ranking`      | Prioritizes movies with strong popularity and ratings       |
-| `gold_overexposed_movies` | Detects highly promoted but poorly rated content            |
-| `gold_genre_trends`       | Identifies recent genre trends for acquisition strategies   |
+- **AWS Lambda**  
+  Serverless processing for Bronze ingestion, Silver transformation and Gold table generation.
 
----
+- **Amazon S3**  
+  Storage for Bronze, Silver and Gold data lake layers.
 
-## 7. Transformation & Business Rules
+- **Amazon EventBridge Scheduler**  
+  Automated execution of the Bronze ingestion Lambda.
 
-- Only movies with `vote_count >= 100` are considered to avoid unreliable ratings.
-- The Gold layer operates on a strict rolling 30-day analytical window.
-- Historical duplication is prevented by selecting the latest record using `ingestion_timestamp`.
-- Genres are normalized using `UNNEST(split(...))` because a movie may belong to multiple categories.
+- **AWS Secrets Manager**  
+  Secure storage of TMDb API configuration.
 
----
+- **AWS Glue Data Catalog**  
+  Metadata catalog for Silver and Gold tables.
 
-## 8. Future Improvements
+- **AWS Glue Crawler**  
+  Schema discovery for the Silver Parquet dataset.
 
-Although the project is functional and cost-efficient for medium-scale workloads, several improvement areas were identified:
+- **Amazon Athena**  
+  SQL query engine used to validate data and create Gold analytical tables.
 
-- **Infrastructure as Code (IaC):**
-  Migrate infrastructure provisioning to Terraform or AWS CloudFormation for repeatable deployments.
-- **Data Quality Validation:**
-  Integrate AWS Glue Data Quality or libraries such as Great Expectations within the Silver layer.
-- **Data Visualization:**
-  Connect Gold layer tables to dashboards using Amazon QuickSight or Power BI.
-- **Monitoring & Alerts:**
-  Configure Amazon CloudWatch Alarms and SNS notifications for Lambda failures.
-- **CI/CD Pipeline:**
-  Implement GitHub Actions workflows for automated Lambda deployment and validation.
+- **Power BI Desktop**  
+  Business dashboard connected to Athena through ODBC.
 
----
+- **Python**  
+  Main programming language for Lambda functions and data transformation logic.
 
-## 9. Code Structure
+- **Pandas / AWS Wrangler / Boto3**  
+  Python libraries used for data processing and AWS service integration.
 
-```bash
-src
-├── lambda/
-│   ├── tmdb_to_bronze/
-│   ├── bronze_to_silver/
-│   └── silver_to_gold/
-├── queries/
-│   └── athena/
-├── architecture/
+## Main AWS Resources
+
+| Component | Resource |
+|---|---|
+| S3 Bucket | `unam-2026-ingenieriadatos-equipo1-997622531618-us-east-2-an` |
+| Glue Database | `db_movies_tmdb` |
+| Silver Table | `2silver` |
+| Glue Crawler | `crawler-movies-silver` |
+| Bronze Lambda | `tmdb_to_bronze` |
+| Silver Lambda | `bronce_tmdb_to_silver` |
+| Gold Lambda | `silver_tmdb_to_gold` |
+
+## Lambda Functions
+
+### tmdb_to_bronze
+
+Extracts data from the TMDb API and writes raw NDJSON files to S3 Bronze.
+
+Main responsibilities:
+
+- Read configuration from Secrets Manager.
+- Query the TMDb `/movie/popular` endpoint.
+- Retrieve multiple pages per execution.
+- Add ingestion metadata.
+- Store raw data in the Bronze layer.
+
+### bronce_tmdb_to_silver
+
+Transforms raw Bronze data into clean Parquet files in the Silver layer.
+
+Main responsibilities:
+
+- Trigger automatically when a new Bronze file is created.
+- Read raw NDJSON files from S3.
+- Clean, cast and enrich movie data.
+- Map genre IDs to genre names.
+- Filter low-quality records.
+- Write Parquet files to S3 Silver.
+- Invoke the Gold Lambda.
+
+### silver_tmdb_to_gold
+
+Creates the analytical Gold tables using Athena CTAS.
+
+Main responsibilities:
+
+- Drop previous Gold tables.
+- Clean previous Gold S3 paths.
+- Execute Athena CTAS queries.
+- Generate analytical tables for Power BI consumption.
+
+## Repository Structure
+
+```text
+project-root/
 ├── docs/
+│   ├── ArchitectureDocumentation.md
+│   ├── FunctionalDocumentation.md
+│   ├── TechnicalDocumentation.md
+│   ├── RFP.md
+│   └── SOW.md
+│
+├── img/
+│   ├── Pipeline Flow Diagram.svg
+│   ├── architecture diagram.png
+│   └── screenshots/
+│
+├── iac/
+│   ├── cloudformation_tmdb_datalake.yml
+│   └── README.md
+│
+├── deploy/
+│   ├── README.md
+│   └── quickstart_checklist.md
+│
+├── src/
+│   ├── lambdas/
+│   │   ├── tmdb_to_bronze/
+│   │   ├── bronce_tmdb_to_silver/
+│   │   └── silver_tmdb_to_gold/
+│   │
+│   ├── athena/
+│   ├── glue/
+│   ├── powerbi/
+│   └── config/
+│
 └── README.md
 ```
+
+## Deployment
+
+The infrastructure can be deployed using the CloudFormation template located in:
+
+```text
+iac/cloudformation_tmdb_datalake.yml
+```
+
+Suggested deployment command:
+
+```bash
+aws cloudformation deploy \
+  --template-file iac/cloudformation_tmdb_datalake.yml \
+  --stack-name streamsight-tmdb-dev \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --parameter-overrides \
+    TmdbApiKey=YOUR_TMDB_API_KEY \
+    DataLakeBucketName=YOUR_UNIQUE_BUCKET_NAME
+```
+
+The full replication guide is available in:
+
+```text
+deploy/README.md
+```
+
+A shorter checklist is available in:
+
+```text
+deploy/quickstart_checklist.md
+```
+
+## Power BI Dashboard
+
+The Power BI dashboard connects to Athena using the Amazon Athena ODBC driver.
+
+The dashboard includes:
+
+- General movie catalog KPIs.
+- Genre performance analysis.
+- Recommended movie ranking.
+- Overexposed movies table.
+- Genre popularity trend analysis.
+
+![AWS Power BI dashboard](img/screenshots/powerbi_dashboard.png)
+
+```text
+img/screenshots/powerbi_dashboard.png
+```
+
+## Validation and Evidence
+
+Implementation evidence stored under:
+
+```text
+img/screenshots/
+```
+
+Screenshots:
+
+```text
+aws_eventbridge_schedule.png
+aws_lambda_functions.png
+aws_s3_bronze.png
+aws_s3_silver.png
+aws_s3_gold.png
+aws_glue_catalog_tables.png
+aws_athena_gold_queries.png
+powerbi_dashboard.png
+```
+
+These screenshots demonstrate that the pipeline was implemented in AWS and that the final analytical layer is available for business visualization.
+
+## Things Learned
+
+This project helped reinforce practical experience in:
+
+- Building a serverless data engineering pipeline in AWS.
+- Designing a Bronze, Silver and Gold data lake architecture.
+- Automating ingestion with EventBridge and S3 events.
+- Processing semi-structured API data with Python.
+- Storing analytical datasets in Parquet.
+- Using Glue Data Catalog and Athena for schema management and SQL analytics.
+- Connecting AWS analytical data to Power BI.
+- Documenting infrastructure, deployment and business-oriented data products.
+
+## Possible Improvements
+
+### 1. Add orchestration with Step Functions
+
+The current pipeline uses EventBridge, S3 events and Lambda invocation. A future version could use AWS Step Functions to make the orchestration more explicit and easier to monitor.
+
+### 2. Improve data quality validation
+
+Additional validation rules could be added before writing to Silver and Gold, including schema checks, null thresholds and anomaly detection.
+
+### 3. Add CI/CD deployment
+
+The project could be extended with a CI/CD workflow using GitHub Actions to package and deploy Lambda functions automatically.
+
+### 4. Publish Power BI dashboard to Power BI Service
+
+The current dashboard can be refreshed manually in Power BI Desktop. A production version could use Power BI Service and Gateway to configure scheduled refresh after each pipeline execution.
+
+### 5. Expand TMDb data sources
+
+The project currently focuses on popular movies. Future versions could include additional TMDb endpoints such as trending movies, movie details, credits, providers and recommendations.
+
+## Security Considerations
+
+- TMDb API keys are stored in AWS Secrets Manager.
+- AWS credentials must not be committed to the repository.
+- S3 public access should remain blocked.
+- IAM permissions should follow the principle of least privilege.
+- Power BI access should use a dedicated IAM user or role with restricted Athena, Glue and S3 permissions.
+
+## License
+
+This project is intended for educational and portfolio purposes. Add a specific license file if the repository will be shared publicly.
