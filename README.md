@@ -171,44 +171,6 @@ Main responsibilities:
 - Execute Athena CTAS queries.
 - Generate analytical tables for Power BI consumption.
 
-## Repository Structure
-
-```text
-project-root/
-├── docs/
-│   ├── ArchitectureDocumentation.md
-│   ├── FunctionalDocumentation.md
-│   ├── TechnicalDocumentation.md
-│   ├── RFP.md
-│   └── SOW.md
-│
-├── img/
-│   ├── Pipeline Flow Diagram.svg
-│   ├── architecture diagram.png
-│   └── screenshots/
-│
-├── iac/
-│   ├── cloudformation_tmdb_datalake.yml
-│   └── README.md
-│
-├── deploy/
-│   ├── README.md
-│   └── quickstart_checklist.md
-│
-├── src/
-│   ├── lambdas/
-│   │   ├── tmdb_to_bronze/
-│   │   ├── bronce_tmdb_to_silver/
-│   │   └── silver_tmdb_to_gold/
-│   │
-│   ├── athena/
-│   ├── glue/
-│   ├── powerbi/
-│   └── config/
-│
-└── README.md
-```
-
 ## Deployment
 
 The infrastructure can be deployed using the CloudFormation template located in:
