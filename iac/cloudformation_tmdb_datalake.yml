@@ -1,0 +1,433 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  StreamSight TMDb Analytics - AWS serverless data lake infrastructure.
+  This template creates the core infrastructure for the Bronze, Silver and Gold
+  pipeline using S3, Lambda, EventBridge Scheduler, Glue Data Catalog and Athena.
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: streamsight-tmdb
+    Description: Project identifier used for naming resources.
+
+  EnvironmentName:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - test
+      - prod
+    Description: Deployment environment.
+
+  DataLakeBucketName:
+    Type: String
+    Default: unam-2026-ingenieriadatos-equipo1-997622531618-us-east-2-an
+    Description: >
+      Name of the S3 bucket for the data lake. The bucket name must be globally
+      unique. If the bucket already exists, change this value or import the bucket
+      manually outside this stack.
+
+  TmdbBaseUrl:
+    Type: String
+    Default: https://api.themoviedb.org/3
+    Description: TMDb base API URL.
+
+  TmdbEndpoint:
+    Type: String
+    Default: /movie/popular
+    Description: TMDb endpoint used by the ingestion Lambda.
+
+  TmdbApiKey:
+    Type: String
+    NoEcho: true
+    Description: TMDb API key. Stored in AWS Secrets Manager.
+
+  ScheduleExpression:
+    Type: String
+    Default: cron(0 8 ? * MON,FRI *)
+    Description: EventBridge Scheduler expression for Bronze ingestion.
+
+  ScheduleTimezone:
+    Type: String
+    Default: America/Mexico_City
+    Description: Time zone used by EventBridge Scheduler.
+
+Resources:
+  DataLakeBucket:
+    Type: AWS::S3::Bucket
+    DependsOn:
+      - LambdaInvokePermissionForS3
+    Properties:
+      BucketName: !Ref DataLakeBucketName
+      NotificationConfiguration:
+        LambdaConfigurations:
+          - Event: s3:ObjectCreated:*
+            Function: !GetAtt BronzeToSilverLambda.Arn
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: 1bronce/tmdb/popular/
+                  - Name: suffix
+                    Value: .json
+      VersioningConfiguration:
+        Status: Suspended
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  TmdbSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub ${ProjectName}-${EnvironmentName}-tmdb-config
+      Description: TMDb and S3 configuration for Bronze ingestion Lambda.
+      SecretString: !Sub |
+        {
+          "TMDB_API_KEY": "${TmdbApiKey}",
+          "TMDB_BASE_URL": "${TmdbBaseUrl}",
+          "TMDB_ENDPOINT": "${TmdbEndpoint}",
+          "S3_BUCKET": "${DataLakeBucketName}",
+          "S3_PREFIX": "1bronce/tmdb/popular/"
+        }
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${ProjectName}-${EnvironmentName}-lambda-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: lambda-basic-logs
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: '*'
+        - PolicyName: data-lake-s3-access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:ListBucket
+                Resource:
+                  - !Sub arn:aws:s3:::${DataLakeBucketName}
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                Resource:
+                  - !Sub arn:aws:s3:::${DataLakeBucketName}/1bronce/*
+                  - !Sub arn:aws:s3:::${DataLakeBucketName}/2silver/*
+                  - !Sub arn:aws:s3:::${DataLakeBucketName}/3gold/*
+                  - !Sub arn:aws:s3:::${DataLakeBucketName}/athena/*
+        - PolicyName: secrets-manager-read
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource:
+                  - !Ref TmdbSecret
+        - PolicyName: invoke-gold-lambda
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource:
+                  - !GetAtt SilverToGoldLambda.Arn
+        - PolicyName: athena-glue-access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - athena:StartQueryExecution
+                  - athena:GetQueryExecution
+                  - athena:GetQueryResults
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - glue:GetDatabase
+                  - glue:GetDatabases
+                  - glue:CreateDatabase
+                  - glue:GetTable
+                  - glue:GetTables
+                  - glue:CreateTable
+                  - glue:DeleteTable
+                  - glue:UpdateTable
+                  - glue:GetPartition
+                  - glue:GetPartitions
+                  - glue:CreatePartition
+                  - glue:BatchCreatePartition
+                Resource: '*'
+
+  GlueCrawlerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${ProjectName}-${EnvironmentName}-glue-crawler-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - glue.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole
+      Policies:
+        - PolicyName: glue-crawler-s3-read
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:ListBucket
+                Resource:
+                  - !Sub arn:aws:s3:::${DataLakeBucketName}
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                Resource:
+                  - !Sub arn:aws:s3:::${DataLakeBucketName}/2silver/*
+
+  BronzeIngestionLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: tmdb_to_bronze
+      Description: Extracts popular movies from TMDb and writes raw NDJSON files to S3 Bronze.
+      Runtime: python3.11
+      Handler: index.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 120
+      MemorySize: 256
+      Environment:
+        Variables:
+          SECRET_NAME: !Ref TmdbSecret
+      Code:
+        ZipFile: |
+          import json
+          def lambda_handler(event, context):
+              return {
+                  "statusCode": 200,
+                  "message": "Placeholder Lambda. Replace this inline code with src/lambdas/tmdb_to_bronze/lambda_function.py"
+              }
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  BronzeToSilverLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: bronce_tmdb_to_silver
+      Description: Cleans Bronze TMDb data and writes trusted Parquet files to S3 Silver.
+      Runtime: python3.11
+      Handler: index.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 180
+      MemorySize: 512
+      Environment:
+        Variables:
+          DATA_LAKE_BUCKET: !Ref DataLakeBucketName
+          SILVER_PREFIX: 2silver/movies/
+          GOLD_LAMBDA_NAME: silver_tmdb_to_gold
+      Code:
+        ZipFile: |
+          import json
+          def lambda_handler(event, context):
+              return {
+                  "statusCode": 200,
+                  "message": "Placeholder Lambda. Replace this inline code with src/lambdas/bronce_tmdb_to_silver/lambda_function.py"
+              }
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  SilverToGoldLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: silver_tmdb_to_gold
+      Description: Builds Gold analytical tables with Athena CTAS.
+      Runtime: python3.11
+      Handler: index.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 300
+      MemorySize: 256
+      Environment:
+        Variables:
+          DATA_LAKE_BUCKET: !Ref DataLakeBucketName
+          ATHENA_DATABASE: !Ref GlueDatabase
+          ATHENA_OUTPUT_LOCATION: !Sub s3://${DataLakeBucketName}/athena/
+          GOLD_BASE_PATH: !Sub s3://${DataLakeBucketName}/3gold
+      Code:
+        ZipFile: |
+          import json
+          def lambda_handler(event, context):
+              return {
+                  "statusCode": 200,
+                  "message": "Placeholder Lambda. Replace this inline code with src/lambdas/silver_tmdb_to_gold/lambda_function.py"
+              }
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  LambdaInvokePermissionForS3:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref BronzeToSilverLambda
+      Action: lambda:InvokeFunction
+      Principal: s3.amazonaws.com
+      SourceArn: !Sub arn:aws:s3:::${DataLakeBucketName}
+
+  SchedulerExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${ProjectName}-${EnvironmentName}-scheduler-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - scheduler.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: scheduler-invoke-bronze-lambda
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource:
+                  - !GetAtt BronzeIngestionLambda.Arn
+
+  BronzeIngestionSchedule:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: !Sub ${ProjectName}-${EnvironmentName}-bronze-ingestion-schedule
+      Description: Scheduled execution for TMDb Bronze ingestion.
+      FlexibleTimeWindow:
+        Mode: 'OFF'
+      ScheduleExpression: !Ref ScheduleExpression
+      ScheduleExpressionTimezone: !Ref ScheduleTimezone
+      State: ENABLED
+      Target:
+        Arn: !GetAtt BronzeIngestionLambda.Arn
+        RoleArn: !GetAtt SchedulerExecutionRole.Arn
+        Input: |
+          {
+            "source": "eventbridge-scheduler",
+            "job": "tmdb_to_bronze"
+          }
+
+  GlueDatabase:
+    Type: AWS::Glue::Database
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      DatabaseInput:
+        Name: db_movies_tmdb
+        Description: Glue database for TMDb Bronze, Silver and Gold analytical data.
+
+  SilverCrawler:
+    Type: AWS::Glue::Crawler
+    Properties:
+      Name: crawler-movies-silver
+      Description: Crawls the Silver S3 layer and updates the Glue Data Catalog.
+      Role: !GetAtt GlueCrawlerRole.Arn
+      DatabaseName: !Ref GlueDatabase
+      Targets:
+        S3Targets:
+          - Path: !Sub s3://${DataLakeBucketName}/2silver/
+      RecrawlPolicy:
+        RecrawlBehavior: CRAWL_EVERYTHING
+      SchemaChangePolicy:
+        UpdateBehavior: UPDATE_IN_DATABASE
+        DeleteBehavior: LOG
+      Tags:
+        Project: !Ref ProjectName
+        Environment: !Ref EnvironmentName
+
+  AthenaWorkGroup:
+    Type: AWS::Athena::WorkGroup
+    Properties:
+      Name: !Sub ${ProjectName}-${EnvironmentName}-workgroup
+      Description: Athena workgroup for TMDb analytical queries.
+      State: ENABLED
+      WorkGroupConfiguration:
+        EnforceWorkGroupConfiguration: false
+        ResultConfiguration:
+          OutputLocation: !Sub s3://${DataLakeBucketName}/athena/
+
+Outputs:
+  DataLakeBucket:
+    Description: S3 bucket used by the data lake.
+    Value: !Ref DataLakeBucketName
+
+  BronzePrefix:
+    Description: Bronze raw data prefix.
+    Value: !Sub s3://${DataLakeBucketName}/1bronce/tmdb/popular/
+
+  SilverPrefix:
+    Description: Silver trusted data prefix.
+    Value: !Sub s3://${DataLakeBucketName}/2silver/movies/
+
+  GoldPrefix:
+    Description: Gold analytics prefix.
+    Value: !Sub s3://${DataLakeBucketName}/3gold/
+
+  GlueDatabaseName:
+    Description: Glue and Athena database name.
+    Value: !Ref GlueDatabase
+
+  BronzeLambdaName:
+    Description: Bronze ingestion Lambda function.
+    Value: !Ref BronzeIngestionLambda
+
+  SilverLambdaName:
+    Description: Bronze to Silver Lambda function.
+    Value: !Ref BronzeToSilverLambda
+
+  GoldLambdaName:
+    Description: Silver to Gold Lambda function.
+    Value: !Ref SilverToGoldLambda
+
+  AthenaWorkGroupName:
+    Description: Athena workgroup created by this template.
+    Value: !Ref AthenaWorkGroup
