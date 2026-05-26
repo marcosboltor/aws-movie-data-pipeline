@@ -332,4 +332,4 @@ The project currently focuses on popular movies. Future versions could include a
 
 ## License
 
-This project is intended for educational and portfolio purposes. Add a specific license file if the repository will be shared publicly.
+This project is intended for educational and portfolio purposes. Add a specific license file if the repository will be shared publicly
