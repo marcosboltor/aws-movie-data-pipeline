@@ -38,20 +38,6 @@ Each pipeline execution retrieves multiple pages of popular movies and stores th
 
 The solution follows a Medallion Architecture:
 
-```text
-TMDb API
-→ EventBridge Scheduler
-→ Lambda Bronze
-→ S3 Bronze
-→ S3 Event Notification
-→ Lambda Silver
-→ S3 Silver
-→ Lambda Gold
-→ Athena CTAS
-→ S3 Gold
-→ Power BI
-```
-
 ### Bronze Layer
 
 The Bronze layer stores raw data extracted from the TMDb API.
