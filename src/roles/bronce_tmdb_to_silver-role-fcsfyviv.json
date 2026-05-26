@@ -1,0 +1,70 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": "logs:CreateLogGroup",
+            "Resource": "arn:aws:logs:us-east-2:997622531618:*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "logs:CreateLogStream",
+                "logs:PutLogEvents"
+            ],
+            "Resource": [
+                "arn:aws:logs:us-east-2:997622531618:log-group:/aws/lambda/bronce_tmdb_to_silver:*"
+            ]
+        }
+    ]
+}
+
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "AllowInvokeGoldLambda",
+            "Effect": "Allow",
+            "Action": [
+                "lambda:InvokeFunction"
+            ],
+            "Resource": "arn:aws:lambda:us-east-2:997622531618:function:silver_tmdb_to_gold"
+        }
+    ]
+}
+
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "ListBucketAccess",
+            "Effect": "Allow",
+            "Action": "s3:ListBucket",
+            "Resource": "arn:aws:s3:::unam-2026-ingenieriadatos-equipo1-997622531618-us-east-2-an",
+            "Condition": {
+                "StringLike": {
+                    "s3:prefix": [
+                        "1bronce/*",
+                        "2silver/*"
+                    ]
+                }
+            }
+        },
+        {
+            "Sid": "ReadAccessBronze",
+            "Effect": "Allow",
+            "Action": [
+                "s3:GetObject"
+            ],
+            "Resource": "arn:aws:s3:::unam-2026-ingenieriadatos-equipo1-997622531618-us-east-2-an/1bronce/*"
+        },
+        {
+            "Sid": "WriteAccessSilver",
+            "Effect": "Allow",
+            "Action": [
+                "s3:PutObject"
+            ],
+            "Resource": "arn:aws:s3:::unam-2026-ingenieriadatos-equipo1-997622531618-us-east-2-an/2silver/*"
+        }
+    ]
+}

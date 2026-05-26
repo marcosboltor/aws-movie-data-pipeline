@@ -1,7 +1,7 @@
 import requests
 import json
 import boto3
-from datetime import datetime
+from datetime import datetime, timezone
 
 s3 = boto3.client("s3")
 secrets_client = boto3.client("secretsmanager", region_name="us-east-2")
@@ -46,7 +46,7 @@ def fetch_and_load():
 
     url = f"{BASE_URL}{ENDPOINT}"
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     ingestion_timestamp = now.isoformat()
 
     movies_clean = []

@@ -3,7 +3,7 @@ import boto3
 import pandas as pd
 import awswrangler as wr
 import urllib.parse
-from datetime import datetime
+from datetime import datetime, timezone
 
 s3 = boto3.client("s3")
 lambda_client = boto3.client("lambda")
@@ -97,12 +97,14 @@ def clean_data(df):
     if "release_date" in df_clean.columns:
         df_clean["release_date"] = pd.to_datetime(
             df_clean["release_date"],
+            format="mixed",
             errors="coerce"
         )
 
     if "ingestion_timestamp" in df_clean.columns:
         df_clean["ingestion_timestamp"] = pd.to_datetime(
             df_clean["ingestion_timestamp"],
+            format="mixed",
             errors="coerce"
         )
         df_clean["ingestion_date"] = df_clean["ingestion_timestamp"].dt.date
@@ -148,7 +150,7 @@ def save_silver_parquet(df):
     Returns:
         str: The S3 path where the Parquet data was saved.
     """
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
 
     s3_path = (
         f"s3://{BUCKET_NAME}/{SILVER_PREFIX}/"

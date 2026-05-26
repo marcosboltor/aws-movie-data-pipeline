@@ -1,0 +1,15 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "lambda:InvokeFunction"
+            ],
+            "Resource": [
+                "arn:aws:lambda:us-east-2:997622531618:function:tmdb_to_bronze:*",
+                "arn:aws:lambda:us-east-2:997622531618:function:tmdb_to_bronze"
+            ]
+        }
+    ]
+}
