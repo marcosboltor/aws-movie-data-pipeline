@@ -100,7 +100,7 @@ These tables are designed to answer the business questions defined for the strea
 
 ## Architecture Diagram
 
-![AWS Data Pipeline Architecture](img/architecture diagram.png)
+![AWS Data Pipeline Architecture](img/architecture_diagram.png)
 
 ## Tech Stack
 
