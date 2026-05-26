@@ -325,18 +325,7 @@ Technical validation is performed through:
 - Successful Athena queries.
 - Connected dashboard in Power BI.
 
-Suggested screenshots for `img/`:
-
-```text
-captura_eventbridge.png
-captura_lambda_bronze.png
-captura_s3_bronze.png
-captura_lambda_silver.png
-captura_s3_silver.png
-captura_lambda_gold.png
-captura_athena_gold.png
-captura_powerbi_dashboard.png
-```
+Implementation evidence will be stored in the `img/` directory of the repository. This folder will include the architecture diagram, sequence and/or flow diagrams, and screenshots proving that the solution was implemented in AWS.
 
 ---
 
