@@ -1,282 +1,235 @@
 # Documentación Funcional  
-# Sistema de Analítica de Películas TMDb en AWS
+# Sistema de Analítica de Catálogo para Plataforma de Streaming
 
-**Proyecto:** AWS/TMDb Data Lake  
+**Cliente:** Plataforma de Streaming  
+**Proyecto:** Analítica de catálogo audiovisual con TMDb y AWS  
 **Fecha:** Mayo 2026  
-**Versión:** 1.0
+**Versión:** 2.0
 
 ---
 
 ## 1. Objetivo del documento
 
-Este documento describe el sistema desde una perspectiva funcional, es decir, qué hace la solución, qué usuarios la utilizan, qué procesos soporta y qué valor aporta. No profundiza en código ni configuración interna de infraestructura.
+Este documento describe el funcionamiento del sistema desde una perspectiva de negocio. Su propósito es explicar qué hace la solución, qué usuarios la utilizan, qué decisiones apoya y qué valor entrega a una plataforma de streaming.
 
-El sistema permite consultar y analizar información de películas populares obtenidas desde TMDb API, procesadas en AWS y visualizadas mediante herramientas analíticas como Athena y Power BI.
+El sistema permite analizar información reciente de películas populares obtenida desde TMDb para apoyar la gestión informada del catálogo: adquisición de contenido, priorización de títulos, promoción de películas y detección de tendencias por género.
 
 ---
 
 ## 2. Descripción funcional del sistema
 
-El sistema AWS/TMDb permite construir un flujo de datos para análisis de películas. Su función principal es obtener información periódica desde TMDb, almacenarla en un Data Lake, transformarla en datos confiables y exponerla para consultas y visualización.
+La plataforma de streaming necesita evaluar el mercado reciente de películas populares para fortalecer su catálogo con mejores criterios de decisión. Para ello, el sistema toma datos de TMDb, los procesa en AWS y entrega tablas analíticas listas para consulta y visualización.
 
-La solución permite responder preguntas como:
-
-- ¿Cuáles son las películas más populares?
-- ¿Qué idiomas concentran más películas populares?
-- ¿Qué películas tienen mejor promedio de voto?
-- ¿Qué géneros presentan mayor popularidad?
-- ¿Cómo se distribuyen las películas por fecha de estreno?
-- ¿Qué películas tienen alta popularidad pero bajo volumen de votos?
+La solución no busca reemplazar la estrategia editorial o comercial de la plataforma. Su función es aportar evidencia cuantitativa para apoyar decisiones sobre qué géneros y películas podrían tener mayor atractivo para los usuarios.
 
 ---
 
-## 3. Usuarios del sistema
+## 3. Preguntas de negocio que responde
+
+La capa Gold está diseñada para responder cuatro preguntas principales:
+
+| Pregunta de negocio | Tabla Gold | Uso de negocio |
+|---|---|---|
+| ¿Qué géneros tienen mejor desempeño reciente? | `gold_performance_genero` | Identificar géneros atractivos para fortalecer el catálogo. |
+| ¿Qué películas conviene recomendar o promocionar? | `gold_ranking_peliculas` | Priorizar títulos con buena mezcla de popularidad, calificación y votos. |
+| ¿Qué películas son populares pero tienen baja calificación? | `gold_peliculas_sobreexpuestas` | Detectar contenido sobreexpuesto que podría no cumplir expectativas. |
+| ¿Qué géneros están creciendo en popularidad? | `gold_tendencia_generos` | Detectar tendencias recientes para adquisición y promoción. |
+
+---
+
+## 4. Usuarios del sistema
 
 | Rol | Responsabilidades |
 |---|---|
-| Analista de datos | Consulta datasets en Athena, valida resultados y genera análisis. |
-| Data Engineer | Mantiene el flujo de ingesta, transformación, catálogo y automatización. |
-| Usuario de negocio / Stakeholder | Consulta visualizaciones en Power BI para interpretar métricas. |
-| Evaluador académico | Revisa funcionamiento, documentación, arquitectura y evidencias del proyecto. |
+| Analista de catálogo | Interpreta las tablas Gold para apoyar decisiones de adquisición, promoción y priorización. |
+| Equipo de contenido | Usa los resultados para identificar géneros o películas con potencial para el catálogo. |
+| Equipo de marketing | Consulta rankings y tendencias para definir campañas de promoción. |
+| Data Engineer | Mantiene el pipeline de ingesta, transformación y publicación de datos. |
+| Dirección / Stakeholder | Revisa el dashboard ejecutivo en Power BI para tomar decisiones de alto nivel. |
 
 ---
 
-## 4. Procesos funcionales soportados
+## 5. Procesos de negocio soportados
 
-### 4.1 Ingesta de información de películas
+### 5.1 Evaluación de desempeño por género
 
-El sistema obtiene datos desde TMDb API, específicamente información relacionada con películas populares. Este proceso puede ejecutarse manualmente o de forma programada mediante EventBridge.
+El sistema calcula métricas agregadas por género para identificar categorías con mejor desempeño reciente. Esto ayuda a decidir qué tipos de películas podrían fortalecerse dentro del catálogo.
 
-Resultado esperado:
+**Salida principal:** `gold_performance_genero`.
 
-- Nuevos archivos almacenados en la capa Bronze de S3.
-- Conservación de datos de origen para trazabilidad.
+### 5.2 Priorización de películas recomendables
 
-### 4.2 Centralización de datos
+El sistema genera un ranking de películas con base en una combinación de popularidad, calificación y volumen de votos. Esto permite detectar títulos con señales positivas para promoción o incorporación al catálogo.
 
-Los datos obtenidos desde TMDb se almacenan en Amazon S3 como repositorio central. Esto evita depender exclusivamente de llamadas directas a la API para cada análisis.
+**Salida principal:** `gold_ranking_peliculas`.
 
-Resultado esperado:
+### 5.3 Detección de contenido sobreexpuesto
 
-- Datos disponibles en un Data Lake.
-- Separación por capas de procesamiento.
-- Organización por prefijos como Bronze, Silver y Gold.
+El sistema identifica películas con alta popularidad pero baja calificación. Esta información ayuda a evitar promocionar contenido que podría generar expectativas altas pero baja satisfacción.
 
-### 4.3 Limpieza y estructuración
+**Salida principal:** `gold_peliculas_sobreexpuestas`.
 
-El sistema transforma los datos crudos en una versión limpia y consultable. En esta etapa se seleccionan campos relevantes, se ajustan tipos de datos y se preparan archivos para consulta eficiente.
+### 5.4 Identificación de tendencias por género
 
-Resultado esperado:
+El sistema analiza géneros con crecimiento reciente en popularidad. Esto apoya decisiones de adquisición, curaduría y campañas alrededor de tendencias emergentes.
 
-- Datos limpios en capa Silver.
-- Columnas consistentes.
-- Datos listos para consulta con Athena.
+**Salida principal:** `gold_tendencia_generos`.
 
-### 4.4 Generación de capa analítica
+### 5.5 Visualización ejecutiva
 
-A partir de los datos Silver se crean datasets o consultas Gold orientadas a indicadores. Esta capa permite análisis más directo desde Athena y Power BI.
-
-Resultado esperado:
-
-- Tablas o resultados Gold.
-- Consultas enfocadas en métricas de popularidad, votos, géneros, idioma y fechas.
-
-### 4.5 Consulta SQL
-
-El sistema permite que un analista ejecute consultas SQL sobre los datos almacenados en S3 mediante Athena.
-
-Resultado esperado:
-
-- Consultas sin necesidad de una base de datos tradicional.
-- Validación rápida de datos procesados.
-- Resultados exportables o conectables a BI.
-
-### 4.6 Visualización en Power BI
-
-El sistema permite consumir datos desde Power BI mediante conexión ODBC hacia Athena.
-
-Resultado esperado:
-
-- Tableros con métricas de películas.
-- Visualizaciones para presentación ejecutiva.
-- Análisis más accesible para usuarios no técnicos.
+Power BI consume las tablas Gold desde Athena para presentar KPIs, rankings y tendencias en un dashboard ejecutivo. Esto facilita que usuarios no técnicos interpreten los resultados.
 
 ---
 
-## 5. Casos de uso
+## 6. Casos de uso
 
-### Caso de uso 1: Consultar películas más populares
+### Caso de uso 1: Identificar géneros atractivos para el catálogo
 
-**Actor principal:** Analista de datos.  
-**Descripción:** El analista desea identificar las películas con mayor popularidad en el conjunto de datos procesado.  
-**Flujo esperado:**
+**Actor principal:** Analista de catálogo.  
+**Entrada:** Tabla `gold_performance_genero`.  
+**Flujo:**
 
-1. El analista consulta la tabla en Athena.
-2. Ordena los datos por `popularity`.
-3. Obtiene un ranking de películas.
-4. Usa el resultado para visualización o análisis.
+1. El analista revisa el desempeño reciente por género.
+2. Compara popularidad, calificación y volumen de votos.
+3. Identifica géneros con señales positivas.
+4. Propone fortalecer el catálogo en esos géneros.
 
-**Resultado:** Ranking de películas populares disponible para reporte.
-
----
-
-### Caso de uso 2: Analizar popularidad por idioma
-
-**Actor principal:** Analista de datos o stakeholder.  
-**Descripción:** Se desea conocer qué idiomas concentran mayor número de películas populares o mayor popularidad promedio.  
-**Flujo esperado:**
-
-1. El usuario consulta datos por `original_language`.
-2. El sistema agrupa películas por idioma.
-3. Se calcula conteo, popularidad promedio y calificación promedio.
-4. El resultado se visualiza en Athena o Power BI.
-
-**Resultado:** Comparación analítica por idioma original.
+**Resultado esperado:** Lista de géneros prioritarios para análisis comercial.
 
 ---
 
-### Caso de uso 3: Validar actualización de datos
+### Caso de uso 2: Priorizar películas para promoción
 
-**Actor principal:** Data Engineer.  
-**Descripción:** El responsable técnico revisa si la ingesta programada generó datos nuevos.  
-**Flujo esperado:**
+**Actor principal:** Equipo de marketing.  
+**Entrada:** Tabla `gold_ranking_peliculas`.  
+**Flujo:**
 
-1. Se revisa la ejecución de Lambda.
-2. Se valida la existencia de archivos nuevos en S3 Bronze.
-3. Se revisa que los datos aparezcan en Silver o Gold.
-4. Se ejecuta consulta de conteo en Athena.
+1. El equipo consulta el ranking de películas recomendables.
+2. Selecciona títulos con buen balance entre popularidad y calificación.
+3. Define títulos candidatos para campañas o recomendaciones destacadas.
 
-**Resultado:** Confirmación de actualización correcta del pipeline.
-
----
-
-### Caso de uso 4: Crear tablero ejecutivo
-
-**Actor principal:** Usuario de negocio o equipo del proyecto.  
-**Descripción:** Se desea presentar métricas principales del conjunto de películas.  
-**Flujo esperado:**
-
-1. Power BI se conecta a Athena.
-2. Se seleccionan tablas o consultas Gold.
-3. Se construyen visualizaciones.
-4. Se presentan KPIs principales.
-
-**Resultado:** Tablero listo para exposición ejecutiva.
+**Resultado esperado:** Selección de películas con mayor potencial de promoción.
 
 ---
 
-### Caso de uso 5: Reprocesar información
+### Caso de uso 3: Evitar promoción de contenido con baja satisfacción potencial
 
-**Actor principal:** Data Engineer.  
-**Descripción:** Si se detecta un error en datos procesados, el equipo puede usar Bronze como fuente histórica para reprocesar Silver o Gold.  
-**Flujo esperado:**
+**Actor principal:** Equipo de contenido o marketing.  
+**Entrada:** Tabla `gold_peliculas_sobreexpuestas`.  
+**Flujo:**
 
-1. Se identifica el archivo o partición afectada.
-2. Se corrige el proceso de transformación.
-3. Se vuelve a generar Silver o Gold.
-4. Se actualiza catálogo y consultas.
+1. El usuario revisa películas con alta popularidad y baja calificación.
+2. Evalúa si conviene limitar su promoción.
+3. Ajusta la estrategia de visibilidad del catálogo.
 
-**Resultado:** Datos corregidos sin depender de una nueva llamada a la API.
-
----
-
-## 6. Reglas funcionales
-
-- La API Key de TMDb no debe estar expuesta en el código fuente.
-- Los datos crudos deben conservarse en Bronze antes de transformarse.
-- La capa Silver debe contener datos estructurados y consultables.
-- La capa Gold debe orientarse a análisis y visualización.
-- Las consultas deben ejecutarse desde Athena sobre tablas registradas en Glue Data Catalog.
-- La conexión con Power BI debe usar datos ya disponibles en Athena.
-- El pipeline debe poder ejecutarse manualmente y, cuando aplique, mediante EventBridge.
-- Las evidencias de implementación deben agregarse al repositorio sin mostrar secretos.
-- Los nombres exactos de buckets, secretos o recursos deben documentarse solo si no comprometen seguridad.
+**Resultado esperado:** Identificación de títulos que podrían requerir cautela en promoción.
 
 ---
 
-## 7. Indicadores funcionales
+### Caso de uso 4: Detectar tendencias recientes
 
-Los indicadores que el sistema puede soportar incluyen:
+**Actor principal:** Dirección o equipo de estrategia.  
+**Entrada:** Tabla `gold_tendencia_generos`.  
+**Flujo:**
 
-| Indicador | Descripción |
-|---|---|
-| Total de películas procesadas | Número de registros disponibles para análisis. |
-| Popularidad promedio | Promedio de la métrica `popularity`. |
-| Calificación promedio | Promedio de `vote_average`. |
-| Total de votos | Suma o análisis de `vote_count`. |
-| Películas por idioma | Conteo por `original_language`. |
-| Películas por género | Conteo o popularidad por género, si el dato fue transformado. |
-| Ranking de popularidad | Lista ordenada por `popularity`. |
-| Ranking de calificación | Lista ordenada por `vote_average`, considerando `vote_count`. |
+1. El usuario revisa géneros con crecimiento reciente.
+2. Compara tendencias con la estrategia de catálogo.
+3. Define oportunidades para adquisición o campañas temáticas.
+
+**Resultado esperado:** Insumos para decisiones estratégicas de catálogo.
 
 ---
 
-## 8. Entradas y salidas del sistema
+## 7. Reglas de negocio
+
+- Solo se consideran películas con `vote_count >= 100`.
+- La capa Gold analiza una ventana móvil de 30 días.
+- Si una película aparece varias veces en el histórico, Gold utiliza el registro más reciente según `ingestion_timestamp`.
+- Una película puede pertenecer a varios géneros.
+- El análisis por género separa géneros múltiples con `UNNEST(split(...))`.
+- El score de desempeño combina popularidad, calificación y volumen de votos.
+- Bronze conserva snapshots crudos.
+- Silver conserva histórico limpio.
+- Gold representa una vista analítica reciente orientada al negocio.
+- Power BI no modifica los datos del Data Lake; únicamente consume resultados procesados.
+
+---
+
+## 8. Entradas y salidas
 
 ### 8.1 Entradas
 
-- Datos obtenidos desde TMDb API.
-- Parámetros configurados en Secrets Manager.
-- Programación de EventBridge.
-- Consultas SQL definidas por el equipo.
-- Configuración ODBC para Power BI.
+- Datos de películas populares desde TMDb API.
+- Géneros, popularidad, calificación promedio, volumen de votos, fecha de estreno e idioma.
+- Metadatos de ingesta como `source_page`, `ingestion_timestamp` e `ingestion_date`.
 
 ### 8.2 Salidas
 
-- Archivos Bronze en S3.
-- Archivos Silver limpios.
-- Datasets o tablas Gold.
-- Tablas registradas en Glue Data Catalog.
-- Resultados de consulta en Athena.
-- Visualizaciones en Power BI.
-- Evidencias y documentación del proyecto.
+- Datos crudos en Bronze.
+- Datos limpios en Silver.
+- Tablas analíticas Gold.
+- Consultas disponibles en Athena.
+- Dashboard ejecutivo en Power BI.
 
 ---
 
-## 9. Beneficios esperados
+## 9. Indicadores de negocio
 
-- Centralización de datos de TMDb en AWS.
-- Separación clara entre datos crudos, limpios y analíticos.
-- Consulta SQL sin necesidad de base de datos tradicional.
-- Automatización de la ingesta.
-- Visualización de datos desde Power BI.
-- Repositorio documentado y defendible.
-- Buenas prácticas básicas de seguridad al no exponer credenciales.
-
----
-
-## 10. Limitaciones funcionales
-
-- La calidad y disponibilidad de datos depende de TMDb API.
-- El proyecto no garantiza actualización automática en Power BI Desktop por sí solo.
-- La visualización depende de la conexión ODBC y configuración de Athena.
-- La capa Gold depende de las consultas definidas por el equipo.
-- No se contempla, dentro del alcance base, un sistema productivo multiusuario.
-- No se incluyen modelos predictivos o machine learning como funcionalidad principal.
+| Indicador | Uso |
+|---|---|
+| Popularidad promedio por género | Detectar géneros con mayor atracción de mercado. |
+| Calificación promedio por género | Evaluar percepción de calidad. |
+| Volumen de votos por género | Medir representatividad de las calificaciones. |
+| Score de desempeño | Priorizar géneros o títulos combinando popularidad, votos y calificación. |
+| Ranking de películas | Identificar títulos recomendables o promocionables. |
+| Películas sobreexpuestas | Detectar películas populares con baja calificación. |
+| Tendencia de géneros | Identificar crecimiento reciente en categorías de contenido. |
 
 ---
 
-## 11. Glosario
+## 10. Disponibilidad funcional
+
+El pipeline se ejecuta lunes y viernes a las 8:00 a.m. mediante EventBridge. Después de cada ejecución:
+
+1. Se actualiza Bronze con datos nuevos.
+2. Se dispara automáticamente Silver.
+3. Silver invoca Gold.
+4. Gold recrea las tablas analíticas.
+5. Power BI puede actualizarse manualmente desde Desktop.
+
+En un escenario productivo, el dashboard puede publicarse en Power BI Service y programar su actualización mediante Power BI Gateway después de cada corrida del pipeline.
+
+---
+
+## 11. Limitaciones funcionales
+
+- TMDb es una fuente externa y sus métricas no representan directamente el comportamiento interno de los usuarios de la plataforma.
+- La solución analiza popularidad de mercado, no consumo interno real.
+- Las decisiones de catálogo deben complementar estos resultados con costos de licenciamiento, disponibilidad de derechos y estrategia editorial.
+- Power BI Desktop requiere actualización manual.
+- La actualización automática productiva requiere Power BI Service y Gateway.
+- La solución no implementa recomendaciones personalizadas por usuario.
+
+---
+
+## 12. Glosario
 
 | Término | Definición |
 |---|---|
-| TMDb | The Movie Database, fuente de datos de películas. |
-| API | Interfaz que permite consultar datos desde una aplicación externa. |
-| Data Lake | Repositorio central para almacenar datos en distintos formatos. |
+| Catálogo | Conjunto de películas disponibles o candidatas para una plataforma de streaming. |
+| TMDb | Fuente externa de datos sobre películas. |
+| Popularidad | Métrica de TMDb que aproxima visibilidad o interés en una película. |
+| Calificación promedio | Promedio de votos otorgados por usuarios en TMDb. |
+| Volumen de votos | Cantidad de votos registrados para una película. |
 | Bronze | Capa de datos crudos. |
 | Silver | Capa de datos limpios y estructurados. |
-| Gold | Capa de datos refinados para análisis. |
-| Athena | Servicio AWS para consultar datos en S3 usando SQL. |
-| Glue Data Catalog | Catálogo de metadatos para tablas y esquemas. |
-| Glue Crawler | Servicio que detecta estructura de datos en S3. |
-| Lambda | Servicio serverless para ejecutar código bajo demanda. |
-| EventBridge | Servicio para programar o disparar eventos. |
-| Secrets Manager | Servicio para almacenar secretos y configuraciones sensibles. |
-| Power BI | Herramienta de visualización y análisis de datos. |
-| ODBC | Estándar de conexión entre aplicaciones y fuentes de datos. |
+| Gold | Capa de datos analíticos para negocio. |
+| Athena | Servicio para consultar datos de S3 con SQL. |
+| Power BI | Herramienta para construir dashboard ejecutivo. |
+| Dashboard | Vista visual con indicadores clave para toma de decisiones. |
 
 ---
 
-## 12. Conclusión
+## 13. Conclusión
 
-El sistema AWS/TMDb permite construir un flujo funcional de analítica de películas utilizando servicios de AWS. Desde una perspectiva de usuario, la solución permite consultar, analizar y visualizar información de TMDb de forma centralizada, estructurada y defendible para una entrega académica.
+El sistema permite convertir datos externos de TMDb en información útil para la gestión de catálogo de una plataforma de streaming. La capa Gold y el dashboard ejecutivo ayudan a identificar géneros atractivos, películas recomendables, contenido sobreexpuesto y tendencias recientes que pueden apoyar decisiones comerciales y editoriales.
