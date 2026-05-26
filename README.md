@@ -171,6 +171,19 @@ Main responsibilities:
 - Execute Athena CTAS queries.
 - Generate analytical tables for Power BI consumption.
 
+## Security & IAM Roles
+
+The pipeline adheres strictly to the **Principle of Least Privilege (PoLP)**, granting each serverless component only the absolute minimum permissions required for its tasks. The JSON policy definitions are stored under [`src/roles/`](src/roles).
+
+### Principal IAM Roles & Policies
+- **Ingestion Role (`tmdb_to_bronze`)**: Allows writing raw JSON files to the Bronze S3 prefix (`1bronce/`) and retrieving TMDb API credentials securely from AWS Secrets Manager.
+- **Transformation Role (`bronce_tmdb_to_silver`)**: Allows read access to the Bronze prefix, write access to the Silver prefix (`2silver/`) in Parquet format, and permission to trigger the Gold Lambda asynchronously.
+- **Business Aggregation Role (`silver_tmdb_to_gold`)**: Grants full Athena query execution rights, Glue Data Catalog management (creating/dropping tables and database partitions), and S3 read/write access to both Silver and Gold (`3gold/`) layers.
+- **Glue/Athena Analytics Role**: Assumed by analytical crawlers to discover schemas and index S3 partitions.
+- **Orchestration Scheduler Role**: Grants AWS EventBridge Scheduler execution permissions to trigger the ingestion Lambda programmatically on a daily schedule.
+
+For a comprehensive catalog of all IAM roles and full permission policies, see the dedicated [IAM Security Manual](src/roles/README.md).
+
 ## Testing
 
 The project includes a robust, automated test suite consisting of **76 individual test cases** to ensure the pipeline's reliability, configuration integrity, and data quality standards.
@@ -199,7 +212,7 @@ The entire test suite is executed **100% locally with zero AWS infrastructure co
    pytest --cov=src --cov-report=html:tests/coverage_report --cov-report=term > tests/test_report.txt 2>&1
    ```
 
-For a comprehensive breakdown, please refer to the dedicated [Tests Developer Manual](file:///Users/danielgalindo/projects/UNI/aws-movie-data-pipeline/tests/README.md).
+For a comprehensive breakdown, please refer to the dedicated [Tests Developer Manual](tests/README.md).
 
 ## Deployment
 

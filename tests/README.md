@@ -107,7 +107,7 @@ The test suite requires **zero real AWS infrastructure costs** and runs entirely
 
 ### 1. The Global Credential Shield (`conftest.py`)
 
-Before any test suite logic is loaded or imports are evaluated, [conftest.py](file:///Users/danielgalindo/projects/UNI/aws-movie-data-pipeline/tests/conftest.py) forces dummy credentials directly into the OS environment variables:
+Before any test suite logic is loaded or imports are evaluated, [conftest.py](conftest.py) forces dummy credentials directly into the OS environment variables:
 
 ```python
 import os
@@ -156,4 +156,4 @@ Generate the terminal code coverage report and update the visual HTML dashboard:
 pytest --cov=src --cov-report=html:tests/coverage_report --cov-report=term > tests/test_report.txt 2>&1
 ```
 
-*(You can open the file [tests/coverage_report/index.html](file:///Users/danielgalindo/projects/UNI/aws-movie-data-pipeline/tests/coverage_report/index.html) in any browser to inspect coverage dynamically).*
+*(You can open the file [tests/coverage_report/index.html](coverage_report/index.html) in any browser to inspect coverage dynamically).*
