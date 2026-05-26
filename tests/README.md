@@ -156,4 +156,3 @@ Generate the terminal code coverage report and update the visual HTML dashboard:
 pytest --cov=src --cov-report=html:tests/coverage_report --cov-report=term > tests/test_report.txt 2>&1
 ```
 
-*(You can open the file [tests/coverage_report/index.html](coverage_report/index.html) in any browser to inspect coverage dynamically).*
