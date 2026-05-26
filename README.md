@@ -171,6 +171,36 @@ Main responsibilities:
 - Execute Athena CTAS queries.
 - Generate analytical tables for Power BI consumption.
 
+## Testing
+
+The project includes a robust, automated test suite consisting of **76 individual test cases** to ensure the pipeline's reliability, configuration integrity, and data quality standards.
+
+The entire test suite is executed **100% locally with zero AWS infrastructure costs** by virtualizing all cloud services:
+- **`moto`**: Dynamically mocks virtual S3 buckets and AWS Secrets Manager engines in-memory.
+- **`requests-mock`**: Intercepts external TMDb API HTTP calls to serve static JSON payloads.
+- **`unittest.mock`**: Intercepts complex analytical steps like Athena CTAS query execution states and asynchronous Lambda-to-Lambda triggers.
+
+### Test Catalog Breakdown
+- **Configuration & Security (23 Tests)**: Validates naming schemas, S3 prefixes (`1bronce/`, `2silver/`, `3gold/`), database names, official genre mappings, and data quality thresholds (e.g., minimum 100 votes).
+- **Unit Transform Logic (45 Tests)**: Assures exact schema cleanups, date formatting, HSL scoring scales (mapping average vote of 0-10 to an audience score of 0-100), S3 daily partitions, and NDJSON parsing.
+- **Integration Flow (8 Tests)**: Simulates real S3 Events, validating that data seamlessly transitions between Bronze, Silver, and Gold layers with full deduplication.
+
+### Execution Guide
+1. Install testing dependencies:
+   ```bash
+   pip install -r tests/requirements-test.txt
+   ```
+2. Run all tests:
+   ```bash
+   pytest ./tests -v
+   ```
+3. Generate detailed test reports and coverage HTML index:
+   ```bash
+   pytest --cov=src --cov-report=html:tests/coverage_report --cov-report=term > tests/test_report.txt 2>&1
+   ```
+
+For a comprehensive breakdown, please refer to the dedicated [Tests Developer Manual](file:///Users/danielgalindo/projects/UNI/aws-movie-data-pipeline/tests/README.md).
+
 ## Deployment
 
 The infrastructure can be deployed using the CloudFormation template located in:
